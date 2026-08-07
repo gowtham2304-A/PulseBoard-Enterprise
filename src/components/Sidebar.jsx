@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github } from 'lucide-react';
+import { LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github, Download } from 'lucide-react';
 
 export function Sidebar({
   onToggleChat,
@@ -9,7 +9,8 @@ export function Sidebar({
   onOpenCreateTask,
   onClearBoard,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  onDownloadCSV
 }) {
   return (
     <aside className="w-64 bg-white border-r border-slate-200 h-screen sticky top-0 flex flex-col justify-between shrink-0 select-none z-30 shadow-sm">
@@ -86,6 +87,20 @@ export function Sidebar({
           >
             <Bot className="w-4 h-4 text-blue-600" />
             <span>AI Copilot Drawer</span>
+          </button>
+        </div>
+
+        {/* Reports Section */}
+        <div className="px-3 py-2 space-y-1">
+          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Reports
+          </div>
+          <button
+            onClick={onDownloadCSV}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all"
+          >
+            <Download className="w-4 h-4 text-blue-600" />
+            <span>Download CSV Report</span>
           </button>
         </div>
 

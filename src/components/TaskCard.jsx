@@ -1,8 +1,15 @@
 import React from 'react';
-import { Sparkles, AlertTriangle } from 'lucide-react';
+import { Sparkles, AlertTriangle, Clock } from 'lucide-react';
 
-export function TaskCard({ task, onTaskClick, onManualMove, columns }) {
+export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateInactivity }) {
   const isReconsideration = task.status === 'reconsideration';
+
+  // Calculate if task is inactive for 10+ hours (excluding Done tasks)
+  const isStale = React.useMemo(() => {
+    if (task.status === 'done' || !task.last_activity_time) return false;
+    const diffHours = (new Date() - new Date(task.last_activity_time)) / (1000 * 60 * 60);
+    return diffHours >= 10;
+  }, [task.last_activity_time, task.status]);
 
   const priorityBadge = {
     high: 'bg-rose-50 text-rose-700 border-rose-200',
@@ -15,7 +22,7 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns }) {
       onClick={() => onTaskClick(task)}
       className={`group relative enterprise-card rounded-xl p-4 cursor-pointer transition-all ${
         isReconsideration ? 'border-rose-300 bg-rose-50/40 shadow-sm' : ''
-      }`}
+      } ${isStale ? 'border-amber-300 bg-amber-50/20 shadow-sm' : ''}`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
@@ -42,6 +49,14 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns }) {
         {task.title}
       </h3>
 
+      {/* 10-Hour Inactivity Warning */}
+      {isStale && (
+        <div className="mb-2.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[10px] flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span className="font-semibold text-amber-800">⚠️ Inactive for 10h+ (Vansh / Khidmat)</span>
+        </div>
+      )}
+
       {isReconsideration && (
         <div className="mb-2.5 p-2 rounded-lg bg-rose-100/80 border border-rose-200 text-rose-900 text-[11px] flex items-start gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
@@ -64,16 +79,30 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns }) {
       )}
 
       <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <img
             src={task.assigneeAvatar}
             alt={task.assignee}
-            className="w-5 h-5 rounded-full object-cover border border-slate-200"
+            className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
             title={task.assignee}
           />
-          <span className="text-[11px] font-medium text-slate-700 truncate max-w-[85px]">
-            {task.assignee}
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[10px] font-bold text-slate-700 truncate max-w-[70px]">
+              {task.assignee}
+            </span>
+            {/* Simulation Trigger */}
+            {!isStale && task.status !== 'done' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSimulateInactivity(task.id);
+                }}
+                className="text-[8px] text-blue-600 hover:underline font-bold text-left"
+              >
+                Simulate 10h Idle
+              </button>
+            )}
+          </div>
         </div>
 
         <select

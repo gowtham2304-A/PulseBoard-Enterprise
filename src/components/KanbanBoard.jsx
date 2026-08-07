@@ -2,7 +2,7 @@ import React from 'react';
 import { TaskCard } from './TaskCard';
 import { COLUMNS, TEAM_MEMBERS } from '../data/initialData';
 
-export function KanbanBoard({ tasks, onTaskClick, onManualMove, viewMode }) {
+export function KanbanBoard({ tasks, onTaskClick, onManualMove, viewMode, onSimulateInactivity }) {
   if (viewMode === 'swimlanes') {
     return (
       <div className="p-6 max-w-[1700px] mx-auto space-y-5">
@@ -48,6 +48,7 @@ export function KanbanBoard({ tasks, onTaskClick, onManualMove, viewMode }) {
                       onTaskClick={onTaskClick}
                       onManualMove={onManualMove}
                       columns={COLUMNS}
+                      onSimulateInactivity={onSimulateInactivity}
                     />
                   ))
                 ) : (
@@ -115,6 +116,7 @@ export function KanbanBoard({ tasks, onTaskClick, onManualMove, viewMode }) {
                     onTaskClick={onTaskClick}
                     onManualMove={onManualMove}
                     columns={COLUMNS}
+                    onSimulateInactivity={onSimulateInactivity}
                   />
                 ))
               ) : (
