@@ -8,133 +8,43 @@ import { ReminderBanner } from './components/ReminderBanner';
 import { MemberSelectModal, INITIAL_DEMO_MEMBERS } from './components/MemberSelectModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
-import { AlertCircle } from 'lucide-react';
+import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
+import { AlertCircle, Clock } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
 
+function getDeadlineUrgency(deadline, status) {
+  if (!deadline || status === 'done') return null;
+  const diffMs = new Date(deadline) - new Date();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  if (diffHours <= 0) return { isOverdue: true, isUrgent: true, label: 'OVERDUE', hoursLeft: diffHours };
+  if (diffHours < 1) return { isOverdue: false, isUrgent: true, label: `${Math.ceil(diffHours * 60)}m left`, hoursLeft: diffHours };
+  return null;
+}
+
 export default function App() {
+  // ─── All data loaded from DB — no localStorage ─────────────────────────────
   const [tasks, setTasks] = useState([]);
   const [commitLog, setCommitLog] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null); // null until DB responds
+  const [demoMembers] = useState(INITIAL_DEMO_MEMBERS);
 
-  const [demoMembers, setDemoMembers] = useState(INITIAL_DEMO_MEMBERS);
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('pulseboard_user_identity');
-    return saved ? JSON.parse(saved) : INITIAL_DEMO_MEMBERS[0];
-  });
+  // ─── UI State ───────────────────────────────────────────────────────────────
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssignee, setSelectedAssignee] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [sortBy, setSortBy] = useState('default');
   const [viewMode, setViewMode] = useState('columns');
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedTaskForDiff, setSelectedTaskForDiff] = useState(null);
   const [isFlashCardOpen, setIsFlashCardOpen] = useState(false);
+  const [isManagerOverviewOpen, setIsManagerOverviewOpen] = useState(false);
 
-  const handleSelectUser = async (user) => {
-    setCurrentUser(user);
-    localStorage.setItem('pulseboard_user_identity', JSON.stringify(user));
-    try {
-      await fetch(`${API_BASE}/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentUser: user })
-      });
-    } catch (e) {
-      console.log('Backend offline, session saved locally.');
-    }
-    if (user && !user.isManager) {
-      setIsFlashCardOpen(true);
-    }
-  };
-
-  const handleAddMember = (newMember) => {
-    setDemoMembers((prev) => [...prev, newMember]);
-  };
-
-  const handleAddTask = async (newTask) => {
-    // Add default last activity time
-    const taskWithTime = {
-      ...newTask,
-      last_activity_time: new Date().toISOString()
-    };
-    setTasks((prev) => [taskWithTime, ...prev]);
-    try {
-      await fetch(`${API_BASE}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskWithTime)
-      });
-    } catch (e) {
-      console.log('Backend offline, saved locally.');
-    }
-  };
-
-  const handleClearBoard = async () => {
-    if (window.confirm('Clear all tasks on the board?')) {
-      setTasks([]);
-      try {
-        await fetch(`${API_BASE}/tasks`, { method: 'DELETE' });
-      } catch (e) {
-        console.log('Backend offline, cleared locally.');
-      }
-    }
-  };
-
-  // Simulate 10-hour inactivity (Sets last activity to 12 hours ago)
-  const handleSimulateInactivity = async (taskId) => {
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, last_activity_time: twelveHoursAgo } : t))
-    );
-
-    try {
-      await fetch(`${API_BASE}/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ last_activity_time: twelveHoursAgo })
-      });
-    } catch (e) {
-      console.log('Backend offline, simulated locally.');
-    }
-  };
-
-  // Export tasks and status logs as CSV
-  const handleDownloadCSV = () => {
-    if (tasks.length === 0) {
-      alert('No tasks on board to export.');
-      return;
-    }
-
-    const headers = ['Task Key', 'Title', 'Assignee', 'Status', 'Priority', 'Category Label', 'Last AI Summary', 'Last Active Time'];
-    const rows = tasks.map(t => [
-      t.key || 'N/A',
-      `"${t.title.replace(/"/g, '""')}"`,
-      t.assignee,
-      t.status.toUpperCase(),
-      t.priority.toUpperCase(),
-      t.label || 'N/A',
-      `"${(t.last_summary || '').replace(/"/g, '""')}"`,
-      t.last_activity_time || 'N/A'
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `PulseBoard_Activity_Report_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
+  // ─── Load Tasks + Active Session from MongoDB on mount ──────────────────────
   useEffect(() => {
-    async function loadBackendData() {
+    async function loadTasks() {
       try {
         const res = await fetch(`${API_BASE}/tasks`);
         if (res.ok) {
@@ -142,38 +52,90 @@ export default function App() {
           if (data.tasks) setTasks(data.tasks);
         }
       } catch (err) {
-        console.log('Backend offline polling fallback.');
+        console.log('[PulseBoard] Backend offline — tasks not loaded.');
       }
     }
 
-    async function loadActiveSession() {
+    async function loadSession() {
       try {
         const res = await fetch(`${API_BASE}/session`);
         if (res.ok) {
           const data = await res.json();
           if (data.currentUser) {
             setCurrentUser(data.currentUser);
-            localStorage.setItem('pulseboard_user_identity', JSON.stringify(data.currentUser));
+          } else {
+            // First time — default to Manager (Gowtham)
+            setCurrentUser(INITIAL_DEMO_MEMBERS[0]);
           }
         }
       } catch (e) {
-        console.log('Could not load session from database.');
+        console.log('[PulseBoard] Could not load session from DB — defaulting to Manager.');
+        setCurrentUser(INITIAL_DEMO_MEMBERS[0]);
       }
     }
 
-    loadBackendData();
-    loadActiveSession();
-    const interval = setInterval(loadBackendData, 5000);
+    loadTasks();
+    loadSession();
+
+    // Poll tasks from DB every 5 seconds
+    const interval = setInterval(loadTasks, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleManualMove = async (taskId, newStatus) => {
-    const updates = { 
-      status: newStatus, 
-      reconsideration_reason: '',
-      last_activity_time: new Date().toISOString() // reset inactivity
-    };
+  // ─── Switch User — saves to MongoDB, no localStorage ────────────────────────
+  const handleSelectUser = async (user) => {
+    setCurrentUser(user);
+    try {
+      await fetch(`${API_BASE}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentUser: user })
+      });
+    } catch (e) {
+      console.log('[PulseBoard] Could not save session to DB.');
+    }
+    if (user && !user.isManager) {
+      setIsFlashCardOpen(true);
+    }
+  };
 
+  // ─── Create Task — saves to MongoDB ─────────────────────────────────────────
+  const handleAddTask = async (newTask) => {
+    const taskWithTime = { ...newTask, last_activity_time: new Date().toISOString() };
+    try {
+      const res = await fetch(`${API_BASE}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskWithTime)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tasks) setTasks(data.tasks);
+      }
+    } catch (e) {
+      console.log('[PulseBoard] Could not save task to DB.');
+    }
+  };
+
+  // ─── Clear Board — deletes from MongoDB ─────────────────────────────────────
+  const handleClearBoard = async () => {
+    if (window.confirm('Clear all tasks from the database?')) {
+      try {
+        await fetch(`${API_BASE}/tasks`, { method: 'DELETE' });
+        setTasks([]);
+      } catch (e) {
+        console.log('[PulseBoard] Could not clear DB.');
+      }
+    }
+  };
+
+  // ─── Move Task Status — persisted to MongoDB ─────────────────────────────────
+  const handleManualMove = async (taskId, newStatus) => {
+    const updates = {
+      status: newStatus,
+      reconsideration_reason: '',
+      last_activity_time: new Date().toISOString()
+    };
     try {
       await fetch(`${API_BASE}/tasks/${taskId}`, {
         method: 'PATCH',
@@ -181,65 +143,116 @@ export default function App() {
         body: JSON.stringify(updates)
       });
     } catch (e) {}
-
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...updates, last_updated: 'Just now' } : t))
     );
   };
 
-  const handleResolveReconsideration = (taskId) => {
-    handleManualMove(taskId, 'in_progress');
+  const handleResolveReconsideration = (taskId) => handleManualMove(taskId, 'in_progress');
+
+  // ─── Simulate 10h Idle — persisted to MongoDB ────────────────────────────────
+  const handleSimulateInactivity = async (taskId) => {
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ last_activity_time: twelveHoursAgo })
+      });
+    } catch (e) {}
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, last_activity_time: twelveHoursAgo } : t))
+    );
   };
 
+  // ─── CSV Export — reads from DB tasks state ───────────────────────────────────
+  const handleDownloadCSV = () => {
+    if (tasks.length === 0) { alert('No tasks on board to export.'); return; }
+    const headers = ['Task Key', 'Title', 'Assignee', 'Status', 'Priority', 'Category', 'Deadline', 'AI Summary', 'Last Active'];
+    const rows = tasks.map(t => [
+      t.key || 'N/A',
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      t.assignee,
+      t.status.toUpperCase(),
+      t.priority.toUpperCase(),
+      t.label || 'N/A',
+      t.deadline ? new Date(t.deadline).toLocaleString() : 'No deadline',
+      `"${(t.last_summary || '').replace(/"/g, '""')}"`,
+      t.last_activity_time || 'N/A'
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PulseBoard_Report_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // ─── Derived State ────────────────────────────────────────────────────────────
   const filteredAndSortedTasks = useMemo(() => {
     let result = [...tasks];
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.key.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.assignee.toLowerCase().includes(q) ||
-          (t.label && t.label.toLowerCase().includes(q))
+      result = result.filter(t =>
+        t.title?.toLowerCase().includes(q) ||
+        t.key?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q) ||
+        t.assignee?.toLowerCase().includes(q) ||
+        (t.label && t.label.toLowerCase().includes(q))
       );
     }
-
-    if (selectedAssignee !== 'all') {
-      result = result.filter((t) => t.assignee === selectedAssignee);
-    }
-
-    if (selectedPriority !== 'all') {
-      result = result.filter((t) => t.priority === selectedPriority);
-    }
-
+    if (selectedAssignee !== 'all') result = result.filter(t => t.assignee === selectedAssignee);
+    if (selectedPriority !== 'all') result = result.filter(t => t.priority === selectedPriority);
     if (sortBy === 'priority') {
       const pOrder = { high: 1, medium: 2, low: 3 };
       result.sort((a, b) => pOrder[a.priority] - pOrder[b.priority]);
     } else if (sortBy === 'assignee') {
-      result.sort((a, b) => a.assignee.localeCompare(b.assignee));
+      result.sort((a, b) => a.assignee?.localeCompare(b.assignee));
     } else if (sortBy === 'key') {
-      result.sort((a, b) => a.key.localeCompare(b.key));
+      result.sort((a, b) => a.key?.localeCompare(b.key));
+    } else if (sortBy === 'deadline') {
+      result.sort((a, b) => {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline) - new Date(b.deadline);
+      });
     }
-
     return result;
   }, [tasks, searchQuery, selectedAssignee, selectedPriority, sortBy]);
 
-  const reconsiderationTasks = tasks.filter((t) => t.status === 'reconsideration');
+  const reconsiderationTasks = tasks.filter(t => t.status === 'reconsideration');
 
-  // Identify stale tasks (inactive for >10 hours, excluding done)
-  const staleTasks = useMemo(() => {
-    return tasks.filter(t => {
+  // Stale tasks (inactive 10h+) for manager
+  const staleTasks = useMemo(() =>
+    tasks.filter(t => {
       if (t.status === 'done' || !t.last_activity_time) return false;
-      const diffHours = (new Date() - new Date(t.last_activity_time)) / (1000 * 60 * 60);
-      return diffHours >= 10;
-    });
-  }, [tasks]);
+      return (new Date() - new Date(t.last_activity_time)) / 3600000 >= 10;
+    }), [tasks]);
+
+  // Deadline-urgent tasks for manager (overdue or <1h remaining)
+  const deadlineAlerts = useMemo(() =>
+    tasks.filter(t => {
+      const dl = getDeadlineUrgency(t.deadline, t.status);
+      return dl !== null;
+    }), [tasks]);
+
+  // Loading state — wait for DB session to load
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-500 text-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          Loading PulseBoard from database…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 selection:bg-blue-600 selection:text-white">
-      {/* Unified Single Left Sidebar */}
       <Sidebar
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
@@ -250,9 +263,9 @@ export default function App() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onDownloadCSV={handleDownloadCSV}
+        onOpenTeamOverview={() => setIsManagerOverviewOpen(true)}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar
           searchQuery={searchQuery}
@@ -266,16 +279,40 @@ export default function App() {
           onClearBoard={handleClearBoard}
         />
 
-        {/* Manager Inactivity Notifications Banner */}
+        {/* ── Manager: Deadline Overdue / Urgent Banner ── */}
+        {currentUser?.isManager && deadlineAlerts.length > 0 && (
+          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-start gap-3 text-xs text-red-900">
+            <Clock className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-red-900">⏰ Deadline Alert:</span>
+              <ul className="list-disc pl-4 mt-1 space-y-1">
+                {deadlineAlerts.map(t => {
+                  const dl = getDeadlineUrgency(t.deadline, t.status);
+                  return (
+                    <li key={t.id}>
+                      <strong>{t.assignee}</strong> — <strong className="text-blue-700">{t.key}</strong> "{t.title}" is{' '}
+                      {dl.isOverdue
+                        ? <span className="text-red-700 font-bold">OVERDUE!</span>
+                        : <span className="text-rose-700 font-bold">due in {dl.label}!</span>
+                      }
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* ── Manager: 10h Inactivity Banner ── */}
         {currentUser?.isManager && staleTasks.length > 0 && (
-          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-start gap-3 text-xs text-amber-900 animate-fadeIn">
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-start gap-3 text-xs text-amber-900">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-amber-900">Manager Alert Center:</span>
+              <span className="font-bold text-amber-900">Manager Alert — Inactive Developers:</span>
               <ul className="list-disc pl-4 mt-1 space-y-1">
                 {staleTasks.map(t => (
                   <li key={t.id}>
-                    Developer <strong className="text-slate-900">{t.assignee}</strong> has been inactive on task <strong className="text-blue-700">{t.key} ("{t.title}")</strong> for over 10 hours. Please check in with them!
+                    <strong>{t.assignee}</strong> has been inactive on <strong className="text-blue-700">{t.key} "{t.title}"</strong> for 10+ hours.
                   </li>
                 ))}
               </ul>
@@ -299,7 +336,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* AI Copilot Drawer */}
       <AIChatAssistant
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
@@ -308,7 +344,6 @@ export default function App() {
         currentUser={currentUser}
       />
 
-      {/* Modals */}
       <DiffViewerModal
         task={selectedTaskForDiff}
         commitLog={commitLog}
@@ -321,7 +356,7 @@ export default function App() {
         currentUser={currentUser}
         onSelectUser={handleSelectUser}
         members={demoMembers}
-        onAddMember={handleAddMember}
+        onAddMember={() => {}}
       />
 
       <CreateTaskModal
@@ -336,6 +371,13 @@ export default function App() {
         onClose={() => setIsFlashCardOpen(false)}
         tasks={tasks}
         currentUser={currentUser}
+      />
+
+      <ManagerOverviewPanel
+        isOpen={isManagerOverviewOpen}
+        onClose={() => setIsManagerOverviewOpen(false)}
+        tasks={tasks}
+        teamMembers={demoMembers}
       />
     </div>
   );

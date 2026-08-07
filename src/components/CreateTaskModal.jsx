@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { X, Plus, Crown } from 'lucide-react';
+import { X, Plus, Crown, Clock } from 'lucide-react';
 
 export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignee, setAssignee] = useState(members[1]?.name || 'Khidmat');
-  const [priority, setPriority] = useState('medium');
   const [label, setLabel] = useState('Feature');
+  const [deadlineHours, setDeadlineHours] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    const deadlineIso = deadlineHours
+      ? new Date(Date.now() + parseFloat(deadlineHours) * 60 * 60 * 1000).toISOString()
+      : null;
 
     const newTask = {
       id: `task-${Date.now()}`,
@@ -22,17 +26,19 @@ export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
       status: 'todo',
       assignee,
       assigneeAvatar: members.find(m => m.name === assignee)?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-      priority,
+      priority: 'medium',
       label,
       last_summary: 'Task created by Manager.',
       reconsideration_reason: '',
       last_updated: 'Just now',
+      deadline: deadlineIso,
       confidence: 'high'
     };
 
     onAddTask(newTask);
     setTitle('');
     setDescription('');
+    setDeadlineHours('');
     onClose();
   };
 
@@ -46,7 +52,7 @@ export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
             </div>
             <div>
               <h2 className="text-base font-bold font-heading text-slate-900">Create New Task</h2>
-              <p className="text-xs text-slate-500">Assign task to developer for live Git tracking</p>
+              <p className="text-xs text-slate-500">Assign task with deadline for live Git tracking</p>
             </div>
           </div>
 
@@ -77,6 +83,33 @@ export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
               placeholder="Provide technical context for the developer..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
             />
+          </div>
+
+          {/* Deadline Setting */}
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+            <label className="block text-xs font-bold text-amber-800 mb-1.5 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              Manager Deadline (hours from now)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={deadlineHours}
+                onChange={(e) => setDeadlineHours(e.target.value)}
+                placeholder="e.g. 10 (leave blank = no deadline)"
+                className="flex-1 bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-400 transition-all"
+              />
+              {deadlineHours && (
+                <span className="text-[10px] text-amber-700 font-semibold whitespace-nowrap">
+                  Due: {new Date(Date.now() + parseFloat(deadlineHours || 0) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-amber-600 mt-1">
+              🤖 AI will auto-escalate to HIGH priority if &lt;1 hour remains
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

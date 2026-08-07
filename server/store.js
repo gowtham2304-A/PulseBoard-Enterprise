@@ -34,6 +34,7 @@ const TaskSchema = new mongoose.Schema({
   reconsideration_reason: String,
   last_updated: { type: String, default: () => new Date().toISOString() },
   last_activity_time: { type: String, default: () => new Date().toISOString() },
+  deadline: { type: String, default: null },
   confidence: String
 });
 

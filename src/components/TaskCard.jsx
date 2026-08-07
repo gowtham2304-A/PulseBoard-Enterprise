@@ -1,15 +1,39 @@
 import React from 'react';
-import { Sparkles, AlertTriangle, Clock } from 'lucide-react';
+import { Sparkles, AlertTriangle, Clock, Timer } from 'lucide-react';
+
+// Returns { label, colorClass, hoursLeft, isUrgent, isOverdue }
+function getDeadlineInfo(deadline, status) {
+  if (!deadline || status === 'done') return null;
+  const now = new Date();
+  const end = new Date(deadline);
+  const diffMs = end - now;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours <= 0) {
+    return { label: 'OVERDUE', colorClass: 'bg-red-600 text-white border-red-700 animate-pulse', hoursLeft: diffHours, isUrgent: true, isOverdue: true };
+  } else if (diffHours < 1) {
+    const mins = Math.ceil(diffHours * 60);
+    return { label: `${mins}m left`, colorClass: 'bg-rose-100 text-rose-700 border-rose-300 animate-pulse', hoursLeft: diffHours, isUrgent: true, isOverdue: false };
+  } else if (diffHours < 3) {
+    return { label: `${diffHours.toFixed(1)}h left`, colorClass: 'bg-amber-100 text-amber-700 border-amber-300', hoursLeft: diffHours, isUrgent: false, isOverdue: false };
+  } else {
+    return { label: `${diffHours.toFixed(1)}h left`, colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', hoursLeft: diffHours, isUrgent: false, isOverdue: false };
+  }
+}
 
 export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateInactivity }) {
   const isReconsideration = task.status === 'reconsideration';
 
-  // Calculate if task is inactive for 10+ hours (excluding Done tasks)
   const isStale = React.useMemo(() => {
     if (task.status === 'done' || !task.last_activity_time) return false;
     const diffHours = (new Date() - new Date(task.last_activity_time)) / (1000 * 60 * 60);
     return diffHours >= 10;
   }, [task.last_activity_time, task.status]);
+
+  const deadlineInfo = React.useMemo(() => getDeadlineInfo(task.deadline, task.status), [task.deadline, task.status]);
+
+  // Auto-escalate priority when deadline is urgent
+  const effectivePriority = deadlineInfo?.isUrgent ? 'high' : task.priority;
 
   const priorityBadge = {
     high: 'bg-rose-50 text-rose-700 border-rose-200',
@@ -22,7 +46,9 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
       onClick={() => onTaskClick(task)}
       className={`group relative enterprise-card rounded-xl p-4 cursor-pointer transition-all ${
         isReconsideration ? 'border-rose-300 bg-rose-50/40 shadow-sm' : ''
-      } ${isStale ? 'border-amber-300 bg-amber-50/20 shadow-sm' : ''}`}
+      } ${isStale ? 'border-amber-300 bg-amber-50/20 shadow-sm' : ''} ${
+        deadlineInfo?.isUrgent ? 'border-rose-400 bg-rose-50/30 shadow-rose-100 shadow-md' : ''
+      }`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
@@ -36,24 +62,42 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
           )}
         </div>
 
-        <span
-          className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${
-            priorityBadge[task.priority] || priorityBadge.medium
-          }`}
-        >
-          {task.priority}
-        </span>
+        <div className="flex items-center gap-1">
+          {deadlineInfo && (
+            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border flex items-center gap-0.5 ${deadlineInfo.colorClass}`}>
+              <Timer className="w-2.5 h-2.5" />
+              {deadlineInfo.label}
+            </span>
+          )}
+          <span
+            className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${
+              priorityBadge[effectivePriority] || priorityBadge.medium
+            }`}
+          >
+            {deadlineInfo?.isUrgent ? '🔴 HIGH' : effectivePriority}
+          </span>
+        </div>
       </div>
 
       <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug mb-2 font-heading">
         {task.title}
       </h3>
 
+      {/* Urgent Deadline Warning */}
+      {deadlineInfo?.isUrgent && (
+        <div className="mb-2.5 p-2 rounded-lg bg-rose-100 border border-rose-300 text-rose-900 text-[10px] flex items-center gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+          <span className="font-bold">
+            {deadlineInfo.isOverdue ? '🚨 DEADLINE OVERDUE — Manager has been notified!' : `⚡ Deadline in ${deadlineInfo.label} — Priority escalated to HIGH!`}
+          </span>
+        </div>
+      )}
+
       {/* 10-Hour Inactivity Warning */}
-      {isStale && (
+      {isStale && !deadlineInfo?.isUrgent && (
         <div className="mb-2.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[10px] flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-          <span className="font-semibold text-amber-800">⚠️ Inactive for 10h+ (Vansh / Khidmat)</span>
+          <span className="font-semibold text-amber-800">⚠️ Inactive for 10h+</span>
         </div>
       )}
 
@@ -90,7 +134,6 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
             <span className="text-[10px] font-bold text-slate-700 truncate max-w-[70px]">
               {task.assignee}
             </span>
-            {/* Simulation Trigger */}
             {!isStale && task.status !== 'done' && (
               <button
                 onClick={(e) => {
