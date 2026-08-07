@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles, AlertTriangle, Clock, Timer } from 'lucide-react';
+import { SetDeadlineModal } from './SetDeadlineModal';
 
 // Returns { label, colorClass, hoursLeft, isUrgent, isOverdue }
 function getDeadlineInfo(deadline, status) {
@@ -21,7 +22,8 @@ function getDeadlineInfo(deadline, status) {
   }
 }
 
-export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateInactivity }) {
+export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateInactivity, onSetDeadline }) {
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const isReconsideration = task.status === 'reconsideration';
 
   const isStale = React.useMemo(() => {
@@ -122,6 +124,7 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
         </div>
       )}
 
+      {/* Set Deadline button + status move */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
         <div className="flex items-center gap-1.5 min-w-0">
           <img
@@ -134,17 +137,29 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
             <span className="text-[10px] font-bold text-slate-700 truncate max-w-[70px]">
               {task.assignee}
             </span>
-            {!isStale && task.status !== 'done' && (
+            <div className="flex gap-2">
+              {!isStale && task.status !== 'done' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSimulateInactivity(task.id);
+                  }}
+                  className="text-[8px] text-blue-600 hover:underline font-bold text-left"
+                >
+                  Simulate 10h Idle
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSimulateInactivity(task.id);
+                  setShowDeadlineModal(true);
                 }}
-                className="text-[8px] text-blue-600 hover:underline font-bold text-left"
+                className="text-[8px] text-amber-600 hover:underline font-bold flex items-center gap-0.5"
               >
-                Simulate 10h Idle
+                <Clock className="w-2.5 h-2.5" />
+                {task.deadline ? 'Edit Deadline' : 'Set Deadline'}
               </button>
-            )}
+            </div>
           </div>
         </div>
 
@@ -164,6 +179,21 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
           ))}
         </select>
       </div>
+
+      {/* Deadline Modal — rendered inline, stops propagation */}
+      {showDeadlineModal && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <SetDeadlineModal
+            task={task}
+            isOpen={showDeadlineModal}
+            onClose={() => setShowDeadlineModal(false)}
+            onSave={(taskId, deadlineIso) => {
+              onSetDeadline(taskId, deadlineIso);
+              setShowDeadlineModal(false);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

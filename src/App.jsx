@@ -165,6 +165,20 @@ export default function App() {
     );
   };
 
+  // ─── Set / Update Deadline — persisted to MongoDB for any user ───────────────
+  const handleSetDeadline = async (taskId, deadlineIso) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deadline: deadlineIso })
+      });
+    } catch (e) {}
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, deadline: deadlineIso } : t))
+    );
+  };
+
   // ─── CSV Export — reads from DB tasks state ───────────────────────────────────
   const handleDownloadCSV = () => {
     if (tasks.length === 0) { alert('No tasks on board to export.'); return; }
@@ -332,6 +346,7 @@ export default function App() {
             onManualMove={handleManualMove}
             viewMode={viewMode}
             onSimulateInactivity={handleSimulateInactivity}
+            onSetDeadline={handleSetDeadline}
           />
         </main>
       </div>
