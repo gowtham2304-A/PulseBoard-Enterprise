@@ -27,7 +27,8 @@ export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000
       const latestCommit = commits[0];
       const sha = latestCommit.sha.substring(0, 7);
 
-      if (store.hasProcessedSHA(sha)) {
+      const hasProcessed = await store.hasProcessedSHA(sha);
+      if (hasProcessed) {
         return; // Already processed
       }
 
@@ -50,10 +51,10 @@ export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000
 
       console.log(`[Poller] New live commit detected on GitHub: #${sha} "${latestCommit.commit.message}"`);
 
-      const currentTasks = store.getTasks();
+      const currentTasks = await store.getTasks();
       if (currentTasks.length === 0) {
         console.log('[Poller] No tasks on board yet. Skipping analysis.');
-        store.addActivityLog({
+        await store.addActivityLog({
           id: Date.now().toString(),
           sha,
           author: latestCommit.commit.author.name || 'GitHub Developer',
@@ -78,7 +79,7 @@ export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000
 
       if (!analysis || !analysis.matchedTaskId) {
         console.log('[Poller] No matching task found for this commit.');
-        store.addActivityLog({
+        await store.addActivityLog({
           id: Date.now().toString(),
           sha,
           author: latestCommit.commit.author.name || 'GitHub Developer',
@@ -94,15 +95,16 @@ export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000
       }
 
       // Update store state
-      const updatedTask = store.updateTaskStatus(analysis.matchedTaskId, {
+      const updatedTask = await store.updateTaskStatus(analysis.matchedTaskId, {
         status: analysis.newStatus,
         last_summary: analysis.summary,
         reconsideration_reason: analysis.reconsiderationReason || '',
-        confidence: analysis.confidence
+        confidence: analysis.confidence,
+        last_activity_time: new Date().toISOString() // reset inactivity
       });
 
       // Log event
-      store.addActivityLog({
+      await store.addActivityLog({
         id: Date.now().toString(),
         sha,
         author: latestCommit.commit.author.name || 'GitHub Developer',

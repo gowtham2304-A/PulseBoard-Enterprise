@@ -15,38 +15,47 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/tasks', (req, res) => {
-  res.json({ status: 'success', tasks: store.getTasks() });
+// 1. GET Tasks (MongoDB Async)
+app.get('/api/tasks', async (req, res) => {
+  const tasks = await store.getTasks();
+  res.json({ status: 'success', tasks });
 });
 
-app.post('/api/tasks', (req, res) => {
+// 2. POST Create New Task (MongoDB Async)
+app.post('/api/tasks', async (req, res) => {
   const task = req.body;
   if (!task || !task.title) {
     return res.status(400).json({ error: 'Task title is required' });
   }
-  store.addTask(task);
-  res.json({ status: 'success', task, tasks: store.getTasks() });
+  await store.addTask(task);
+  const tasks = await store.getTasks();
+  res.json({ status: 'success', task, tasks });
 });
 
-app.patch('/api/tasks/:id', (req, res) => {
+// 3. PATCH Task Status (MongoDB Async)
+app.patch('/api/tasks/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  const updatedTask = store.updateTaskStatus(id, updates);
+  const updatedTask = await store.updateTaskStatus(id, updates);
   if (!updatedTask) {
     return res.status(404).json({ error: 'Task not found' });
   }
   res.json({ status: 'success', task: updatedTask });
 });
 
-app.delete('/api/tasks', (req, res) => {
-  store.clearTasks();
+// 4. DELETE Clear All Tasks (MongoDB Async)
+app.delete('/api/tasks', async (req, res) => {
+  await store.clearTasks();
   res.json({ status: 'success', tasks: [] });
 });
 
-app.get('/api/activity', (req, res) => {
-  res.json({ status: 'success', activity: store.getActivityLog() });
+// 5. GET Activity Log (MongoDB Async)
+app.get('/api/activity', async (req, res) => {
+  const activity = await store.getActivityLog();
+  res.json({ status: 'success', activity });
 });
 
+// 6. POST Commit Push (Processes commit diff with Gemini LLM & MongoDB Async)
 app.post('/api/commit', async (req, res) => {
   const { sha, author, message, diff } = req.body;
   const commitSHA = sha || Math.random().toString(16).substring(2, 9);
@@ -54,9 +63,10 @@ app.post('/api/commit', async (req, res) => {
   const commitMsg = message || 'wip update';
   const commitDiff = diff || 'diff --git a/src/app.js b/src/app.js\n+ updated code';
 
-  const analysis = await analyzeDiffWithGemini(commitMsg, commitDiff, store.getTasks(), GEMINI_API_KEY);
+  const currentTasks = await store.getTasks();
+  const analysis = await analyzeDiffWithGemini(commitMsg, commitDiff, currentTasks, GEMINI_API_KEY);
 
-  const updatedTask = store.updateTaskStatus(analysis.matchedTaskId, {
+  const updatedTask = await store.updateTaskStatus(analysis.matchedTaskId, {
     status: analysis.newStatus,
     last_summary: analysis.summary,
     reconsideration_reason: analysis.reconsiderationReason || '',
@@ -76,25 +86,29 @@ app.post('/api/commit', async (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  store.addActivityLog(logEntry);
+  await store.addActivityLog(logEntry);
+
+  const tasks = await store.getTasks();
+  const activity = await store.getActivityLog();
 
   res.json({
     status: 'success',
     analysis,
     updatedTask,
-    tasks: store.getTasks(),
-    activity: store.getActivityLog()
+    tasks,
+    activity
   });
 });
 
+// 7. POST Chat Assistant Endpoint (Gemini Powered & MongoDB Async)
 app.post('/api/chat', async (req, res) => {
   const { question, userName, userRole } = req.body;
   if (!question) {
     return res.status(400).json({ error: 'Question required' });
   }
 
-  const tasks = store.getTasks();
-  const activity = store.getActivityLog();
+  const tasks = await store.getTasks();
+  const activity = await store.getActivityLog();
   const isManager = userRole === 'Manager';
 
   if (GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY') {
