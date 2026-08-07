@@ -97,15 +97,12 @@ export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Priority</label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="high">High Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="low">Low Priority</option>
-              </select>
+              <input
+                type="text"
+                value="🤖 AI Auto-Scored"
+                disabled
+                className="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 text-xs text-blue-700 font-semibold focus:outline-none"
+              />
             </div>
 
             <div>

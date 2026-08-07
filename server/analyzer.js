@@ -133,3 +133,43 @@ function codeContentAnalysisEngine(commitMessage, diffCode, tasks) {
     reconsiderationReason
   };
 }
+
+export async function scoreTaskPriority(title, description, existingTasks, apiKey) {
+  if (apiKey && apiKey.startsWith('AIzaSy')) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const prompt = `Analyze this task and assign a priority ('high', 'medium', 'low') based on critical backend/security logic, database schema, payment requirements, or blocker status.
+Task Title: "${title}"
+Task Description: "${description}"
+
+Other Board Tasks: ${JSON.stringify(existingTasks.map(t => ({ title: t.title, priority: t.priority })))}
+
+Return ONLY valid JSON (no markdown):
+{ "priority": "high", "reason": "why" }`;
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (['high', 'medium', 'low'].includes(parsed.priority)) {
+          return parsed.priority;
+        }
+      }
+    } catch (e) {
+      console.error('Priority scoring AI error, using fallback:', e.message);
+    }
+  }
+  return fallbackPriorityScoring(title, description);
+}
+
+function fallbackPriorityScoring(title, description) {
+  const text = (title + " " + (description || "")).toLowerCase();
+  if (/auth|login|security|checkout|payment|bug|crash|error|broken|verify|signature/i.test(text)) {
+    return 'high';
+  }
+  if (/ui|color|css|style|margin|padding|readme|ignore/i.test(text)) {
+    return 'low';
+  }
+  return 'medium';
+}

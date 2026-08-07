@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { store } from './store.js';
-import { analyzeDiffWithGemini } from './analyzer.js';
+import { analyzeDiffWithGemini, scoreTaskPriority } from './analyzer.js';
 import { startGitHubPoller } from './poller.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -27,6 +27,12 @@ app.post('/api/tasks', async (req, res) => {
   if (!task || !task.title) {
     return res.status(400).json({ error: 'Task title is required' });
   }
+
+  // Auto assign AI priority based on PRD FR13
+  const currentTasks = await store.getTasks();
+  const calculatedPriority = await scoreTaskPriority(task.title, task.description || '', currentTasks, GEMINI_API_KEY);
+  task.priority = calculatedPriority;
+
   await store.addTask(task);
   const tasks = await store.getTasks();
   res.json({ status: 'success', task, tasks });
