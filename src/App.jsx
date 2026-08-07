@@ -11,7 +11,7 @@ import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
 import { AlertCircle, Clock } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 function getDeadlineUrgency(deadline, status) {
   if (!deadline || status === 'done') return null;

@@ -94,6 +94,7 @@ export function KanbanBoard({
                   onManualMove={onManualMove}
                   columns={columns}
                   onSimulateInactivity={onSimulateInactivity}
+                  onSetDeadline={onSetDeadline}
                 />
               ))}
           </div>
