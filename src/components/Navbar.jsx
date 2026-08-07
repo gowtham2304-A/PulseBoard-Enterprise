@@ -14,17 +14,17 @@ export function Navbar({
   onClearBoard
 }) {
   return (
-    <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+    <header className="sticky top-0 z-20 bg-white border-b border-slate-100 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 app-header">
       <div className="flex items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Project Board</h2>
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              <ShieldCheck className="w-3 h-3" />
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Project Board</h2>
+            <span className="flex items-center gap-2 text-[12px] font-semibold text-emerald-600 bg-emerald-50 px-3 py-0.5 rounded-full border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5" />
               Live Sync
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Real-time autonomous Git status tracking</p>
+          <p className="text-sm text-slate-500 mt-1">Real-time autonomous Git status tracking</p>
         </div>
       </div>
 
@@ -37,7 +37,7 @@ export function Navbar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search tickets..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
+            className="w-full bg-slate-50 border border-slate-200 rounded-full pl-10 pr-4 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
           />
         </div>
 

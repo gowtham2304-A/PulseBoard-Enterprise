@@ -14,11 +14,11 @@ export function Sidebar({
   onOpenTeamOverview
 }) {
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 h-screen sticky top-0 flex flex-col justify-between shrink-0 select-none z-30 shadow-sm">
+    <aside className="w-56 bg-white border-r border-slate-100 h-screen sticky top-0 flex flex-col justify-between shrink-0 select-none z-30">
       <div className="flex flex-col">
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/30">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-sm">
             <LayoutGrid className="w-4 h-4" />
           </div>
           <div>
@@ -33,10 +33,10 @@ export function Sidebar({
         </div>
 
         {/* Action Button */}
-        <div className="p-4 space-y-2">
+        <div className="p-3">
           <button
             onClick={onOpenCreateTask}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-500/20 active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 text-white font-semibold text-sm transition-all shadow-md active:scale-[0.995]"
           >
             <Plus className="w-4 h-4" />
             <span>Create New Task</span>
@@ -50,7 +50,7 @@ export function Sidebar({
           </div>
           <button
             onClick={() => onViewModeChange('columns')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
               viewMode === 'columns'
                 ? 'bg-blue-50 text-blue-700 border border-blue-100'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -62,7 +62,7 @@ export function Sidebar({
 
           <button
             onClick={() => onViewModeChange('swimlanes')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
               viewMode === 'swimlanes'
                 ? 'bg-blue-50 text-blue-700 border border-blue-100'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'

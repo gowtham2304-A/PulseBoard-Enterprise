@@ -46,10 +46,10 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
   return (
     <div
       onClick={() => onTaskClick(task)}
-      className={`group relative enterprise-card rounded-xl p-4 cursor-pointer transition-all ${
+      className={`group relative enterprise-card rounded-2xl p-3 cursor-pointer transition-all w-full min-h-[140px] flex flex-col justify-between ${
         isReconsideration ? 'border-rose-300 bg-rose-50/40 shadow-sm' : ''
       } ${isStale ? 'border-amber-300 bg-amber-50/20 shadow-sm' : ''} ${
-        deadlineInfo?.isUrgent ? 'border-rose-400 bg-rose-50/30 shadow-rose-100 shadow-md' : ''
+        deadlineInfo?.isUrgent ? 'border-rose-400 bg-rose-50/30 shadow-rose-100 shadow-lg' : ''
       }`}
     >
       <div className="flex items-center justify-between mb-2">
@@ -81,7 +81,7 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
         </div>
       </div>
 
-      <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug mb-2 font-heading">
+      <h3 className="task-title font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug mb-2 font-heading">
         {task.title}
       </h3>
 
@@ -116,25 +116,23 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
       )}
 
       {task.last_summary && (
-        <div className="mb-2.5 p-2 rounded-lg bg-blue-50/60 border border-blue-100 text-blue-900 text-[11px] flex items-start gap-1.5">
+        <div className="mb-2.5 p-2 rounded-lg bg-blue-50/60 border border-blue-100 text-blue-900 text-[11px] flex items-start gap-1.5 max-h-[48px] overflow-hidden">
           <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-          <span className="italic text-slate-600 text-[10px] leading-tight">
-            "{task.last_summary}"
-          </span>
+          <span className="italic text-slate-600 text-[10px] leading-tight truncate">"{task.last_summary}"</span>
         </div>
       )}
 
       {/* Set Deadline button + status move */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-500">
         <div className="flex items-center gap-1.5 min-w-0">
           <img
             src={task.assigneeAvatar}
             alt={task.assignee}
-            className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
+            className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0"
             title={task.assignee}
           />
           <div className="flex flex-col min-w-0">
-            <span className="text-[10px] font-bold text-slate-700 truncate max-w-[70px]">
+            <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[90px]">
               {task.assignee}
             </span>
             <div className="flex gap-2">
