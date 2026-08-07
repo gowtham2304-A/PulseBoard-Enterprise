@@ -11,7 +11,7 @@ import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
 import { AlertCircle, Clock } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
 
 function getDeadlineUrgency(deadline, status) {
   if (!deadline || status === 'done') return null;
@@ -142,7 +142,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-    } catch (e) {}
+    } catch (e) { }
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...updates, last_updated: 'Just now' } : t))
     );
@@ -159,7 +159,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ last_activity_time: twelveHoursAgo })
       });
-    } catch (e) {}
+    } catch (e) { }
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, last_activity_time: twelveHoursAgo } : t))
     );
@@ -173,7 +173,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deadline: deadlineIso })
       });
-    } catch (e) {}
+    } catch (e) { }
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, deadline: deadlineIso } : t))
     );
@@ -371,7 +371,7 @@ export default function App() {
         currentUser={currentUser}
         onSelectUser={handleSelectUser}
         members={demoMembers}
-        onAddMember={() => {}}
+        onAddMember={() => { }}
       />
 
       <CreateTaskModal
