@@ -51,10 +51,45 @@ const ActivitySchema = new mongoose.Schema({
   timestamp: { type: String, default: () => new Date().toISOString() }
 });
 
+// Active Session Schema (Tracks who is logged in across devices/refreshes)
+const SessionSchema = new mongoose.Schema({
+  key: { type: String, default: 'active_session', unique: true },
+  currentUser: {
+    id: String,
+    name: String,
+    role: String,
+    isManager: Boolean,
+    avatar: String
+  }
+});
+
 const Task = mongoose.model('Task', TaskSchema);
 const Activity = mongoose.model('Activity', ActivitySchema);
+const Session = mongoose.model('Session', SessionSchema);
 
 class Store {
+  async getSession() {
+    try {
+      const session = await Session.findOne({ key: 'active_session' });
+      return session ? session.currentUser : null;
+    } catch (e) {
+      console.error('Error reading session from MongoDB:', e.message);
+      return null;
+    }
+  }
+
+  async saveSession(user) {
+    try {
+      await Session.findOneAndUpdate(
+        { key: 'active_session' },
+        { currentUser: user },
+        { upsert: true, new: true }
+      );
+    } catch (e) {
+      console.error('Error saving session to MongoDB:', e.message);
+    }
+  }
+
   async getTasks() {
     try {
       return await Task.find({}).sort({ last_updated: -1 });

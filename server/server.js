@@ -21,6 +21,22 @@ app.get('/api/tasks', async (req, res) => {
   res.json({ status: 'success', tasks });
 });
 
+// 1.1 GET Active User Session from MongoDB
+app.get('/api/session', async (req, res) => {
+  const currentUser = await store.getSession();
+  res.json({ status: 'success', currentUser });
+});
+
+// 1.2 POST Update Active User Session to MongoDB
+app.post('/api/session', async (req, res) => {
+  const { currentUser } = req.body;
+  if (!currentUser) {
+    return res.status(400).json({ error: 'User is required' });
+  }
+  await store.saveSession(currentUser);
+  res.json({ status: 'success', currentUser });
+});
+
 // 2. POST Create New Task (MongoDB Async)
 app.post('/api/tasks', async (req, res) => {
   const task = req.body;

@@ -7,6 +7,7 @@ import { AIChatAssistant } from './components/AIChatAssistant';
 import { ReminderBanner } from './components/ReminderBanner';
 import { MemberSelectModal, INITIAL_DEMO_MEMBERS } from './components/MemberSelectModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
+import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { AlertCircle } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -31,10 +32,23 @@ export default function App() {
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedTaskForDiff, setSelectedTaskForDiff] = useState(null);
+  const [isFlashCardOpen, setIsFlashCardOpen] = useState(false);
 
-  const handleSelectUser = (user) => {
+  const handleSelectUser = async (user) => {
     setCurrentUser(user);
     localStorage.setItem('pulseboard_user_identity', JSON.stringify(user));
+    try {
+      await fetch(`${API_BASE}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentUser: user })
+      });
+    } catch (e) {
+      console.log('Backend offline, session saved locally.');
+    }
+    if (user && !user.isManager) {
+      setIsFlashCardOpen(true);
+    }
   };
 
   const handleAddMember = (newMember) => {
@@ -131,7 +145,24 @@ export default function App() {
         console.log('Backend offline polling fallback.');
       }
     }
+
+    async function loadActiveSession() {
+      try {
+        const res = await fetch(`${API_BASE}/session`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentUser) {
+            setCurrentUser(data.currentUser);
+            localStorage.setItem('pulseboard_user_identity', JSON.stringify(data.currentUser));
+          }
+        }
+      } catch (e) {
+        console.log('Could not load session from database.');
+      }
+    }
+
     loadBackendData();
+    loadActiveSession();
     const interval = setInterval(loadBackendData, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -298,6 +329,13 @@ export default function App() {
         onClose={() => setIsCreateTaskOpen(false)}
         onAddTask={handleAddTask}
         members={demoMembers}
+      />
+
+      <TaskReminderFlashCard
+        isOpen={isFlashCardOpen}
+        onClose={() => setIsFlashCardOpen(false)}
+        tasks={tasks}
+        currentUser={currentUser}
       />
     </div>
   );
