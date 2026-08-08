@@ -230,18 +230,38 @@ export function ReportExportModal({ isOpen, onClose, tasks, teamMembers }) {
 </html>`;
   };
 
+  const handlePrintPDF = (htmlContent) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 400);
+    }
+  };
+
   const handleExport = () => {
     let content, mime, ext;
 
     if (mode === 'task') {
       if (!selectedTask) { alert('Please select a task first.'); return; }
       content = generateTaskHTML(selectedTask);
+      if (format === 'pdf') {
+        handlePrintPDF(content);
+        return;
+      }
       mime = 'text/html';
       ext = 'html';
     } else if (format === 'csv') {
       content = generateProjectCSV();
       mime = 'text/csv';
       ext = 'csv';
+    } else if (format === 'pdf') {
+      content = generateProjectHTML();
+      handlePrintPDF(content);
+      return;
     } else {
       content = generateProjectHTML();
       mime = 'text/html';
@@ -326,31 +346,38 @@ export function ReportExportModal({ isOpen, onClose, tasks, teamMembers }) {
           )}
 
           {/* Format selector */}
-          {mode === 'project' && (
-            <div>
-              <label className="text-xs font-bold text-slate-700 mb-2 block">Export Format</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setFormat('html')}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                    format === 'html' ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-200'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  HTML Report
-                </button>
-                <button
-                  onClick={() => setFormat('csv')}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                    format === 'csv' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-emerald-200'
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  CSV Spreadsheet
-                </button>
-              </div>
+          <div>
+            <label className="text-xs font-bold text-slate-700 mb-2 block">Export Format</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setFormat('pdf')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all ${
+                  format === 'pdf' ? 'bg-rose-50 border-rose-300 text-rose-700 font-bold ring-1 ring-rose-400' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-rose-200'
+                }`}
+              >
+                <Printer className="w-3.5 h-3.5 text-rose-600" />
+                PDF Report
+              </button>
+              <button
+                onClick={() => setFormat('html')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all ${
+                  format === 'html' ? 'bg-purple-50 border-purple-300 text-purple-700 font-bold ring-1 ring-purple-400' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-200'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-purple-600" />
+                HTML Report
+              </button>
+              <button
+                onClick={() => setFormat('csv')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all ${
+                  format === 'csv' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold ring-1 ring-emerald-400' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-emerald-200'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                CSV Data
+              </button>
             </div>
-          )}
+          </div>
 
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] text-slate-500">
             {mode === 'task'
