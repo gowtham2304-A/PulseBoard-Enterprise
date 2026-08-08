@@ -39,7 +39,7 @@ ${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, description: t.desc
 
 2. EVALUATE COMPLETENESS (DESIRED OUTCOME SATISFIED):
    - "done": The code change fulfills the functional goal requested by the manager (even if 1-2 lines, if it fulfills the desired outcome, mark it as DONE!).
-   - "reconsideration": If the commit alters a previously completed task by introducing security bypasses, hardcoded hacks, or removing checks.
+   - "reconsideration": If the commit introduces security bypasses, hardcoded hacks, dummy fallbacks, or removes checks (regardless of whether the task is in To Do, In Progress, Review, or Done).
    - "in_progress": ONLY if the commit is explicitly labeled as WIP, draft, stub, or partial setup.
 
 3. RETURN FORMAT (ONLY valid JSON, no markdown fences):
@@ -122,7 +122,7 @@ function codeContentAnalysisEngine(commitMessage, diffCode, tasks) {
   let summary = `Functional Goal Satisfied: Verified code patch for "${bestTask.title}". Task marked as DONE.`;
   let reconsiderationReason = '';
 
-  if (containsSecurityBypass && (bestTask.status === 'done' || bestTask.status === 'review')) {
+  if (containsSecurityBypass) {
     newStatus = 'reconsideration';
     reconsiderationReason = `Code diff contains potential security bypass or dummy fallback. Flagged for manager review.`;
     summary = `Security flaw detected in code diff patch for "${bestTask.title}". Card shifted to Reconsideration.`;
