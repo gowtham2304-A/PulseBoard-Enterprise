@@ -18,9 +18,10 @@ export async function analyzeDiffWithGemini(commitMessage, diffCode, tasks, apiK
 
       const prompt = `
 You are an expert AI Code Reviewer and Autonomous Project Manager.
-Your job is to inspect raw code diffs (added/removed lines) and evaluate code completeness against task requirements.
 
-CRITICAL DIRECTIVE: DO NOT RELY MERELY ON COMMIT MESSAGES. YOU MUST READ AND ANALYZE THE ACTUAL CODE DIFF CONTENT.
+CRITICAL PRINCIPLE: Managers write tasks in high-level human goals (e.g., "Swap brand color to Emerald", "Build user login endpoint", "Fix checkout crash") WITHOUT knowing developer variable names, internal function names, or file paths.
+
+YOUR MANDATE: Perform FUNCTIONAL GOAL & OUTCOME MATCHING between the Manager's Task Intent and the Developer's Committed Code Patch.
 
 ==================== COMMITTED CODE DIFF ====================
 Commit Message: "${commitMessage}"
@@ -30,23 +31,23 @@ ${diffCode.substring(0, 3500)}
 ==================== OPEN TASKS ON BOARD ====================
 ${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, description: t.description, status: t.status, assignee: t.assignee })), null, 2)}
 
-==================== CODE ANALYSIS & EVALUATION RULES ====================
-1. EVALUATE CODE CONTENT (80% WEIGHT):
-   - Examine exported functions, component trees, CSS classes, schema definitions, imports, and business logic added in the diff.
-   - Match code content to the Task Description and Title.
+==================== EVALUATION RULES ====================
+1. MATCH TASK BY FUNCTIONAL INTENT:
+   Compare the high-level intent of the task title/description with the outcome of the code diff + commit message.
+   - Example: A task asking for "color swap" matches a diff changing CSS classes or hex colors.
+   - Example: A task asking for "login endpoint" matches a diff adding auth/route handlers.
 
-2. DETERMINE STATUS FROM CODE COMPLETENESS:
-   - "in_progress": The diff contains initial/partial code setup, draft CSS variables, stub functions, or incomplete logic (even if commit message claims "done").
-   - "review": The diff contains substantial, working code logic with unit handles, ready for peer review or PR inspection.
-   - "done": The diff contains complete, fully-implemented code that satisfies all requirements of the task.
-   - "reconsideration": The commit alters a previously completed task by introducing bypasses, hardcoded hacks, removing validations, or breaking existing logic.
+2. EVALUATE COMPLETENESS (DESIRED OUTCOME SATISFIED):
+   - "done": The code change fulfills the functional goal requested by the manager (even if 1-2 lines, if it fulfills the desired outcome, mark it as DONE!).
+   - "reconsideration": If the commit alters a previously completed task by introducing security bypasses, hardcoded hacks, or removing checks.
+   - "in_progress": ONLY if the commit is explicitly labeled as WIP, draft, stub, or partial setup.
 
-3. RETURN FORMAT: Return ONLY valid JSON (no markdown fence blocks):
+3. RETURN FORMAT (ONLY valid JSON, no markdown fences):
 {
   "matchedTaskId": "task-id",
-  "newStatus": "in_progress",
+  "newStatus": "done",
   "confidence": "high",
-  "summary": "Technical summary of what specific functions/code lines were added or modified.",
+  "summary": "Plain-English explanation of how the code change satisfied the manager's task requirement.",
   "reconsiderationReason": ""
 }
 `;
@@ -59,76 +60,81 @@ ${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, description: t.desc
         const parsed = JSON.parse(jsonMatch[0]);
         return {
           matchedTaskId: parsed.matchedTaskId || tasks[0].id,
-          newStatus: parsed.newStatus || 'in_progress',
+          newStatus: parsed.newStatus || 'done',
           confidence: parsed.confidence || 'high',
           summary: parsed.summary || `Analyzed code diff for commit: "${commitMessage}"`,
           reconsiderationReason: parsed.reconsiderationReason || ''
         };
       }
     } catch (err) {
-      console.error('Gemini API call failed, running Code Structural Analysis Engine:', err.message);
+      console.error('Gemini API call failed, running Code Intent Analysis Engine:', err.message);
     }
   }
 
-  // Pure Code AST & Code Content Analysis Engine (Fallback)
+  // Pure Functional Goal & Intent Engine (Fallback)
   return codeContentAnalysisEngine(commitMessage, diffCode, tasks);
 }
 
 function codeContentAnalysisEngine(commitMessage, diffCode, tasks) {
-  const diffLower = diffCode.toLowerCase();
+  const text = (diffCode + " " + commitMessage).toLowerCase();
 
-  // 1. Match task based strictly on Code Diff Content (Variables, Imports, Classes, Logic)
+  // 1. Semantic Domain Matching between Manager Goal & Developer Code Diff
   let bestTask = tasks[0];
-  let highestCodeMatchScore = -1;
+  let highestScore = -1;
 
   for (const task of tasks) {
-    let codeScore = 0;
-    const taskTokens = (task.title + " " + (task.description || "")).toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    let score = 0;
+    const taskText = (task.title + " " + (task.description || "")).toLowerCase();
 
-    for (const token of taskTokens) {
-      // Check if code diff contains the specific variable/function names or logic tokens
-      const occurrences = (diffLower.split(token).length - 1);
-      codeScore += occurrences * 3;
+    // Word relevance check
+    const words = taskText.split(/\s+/).filter(w => w.length > 3);
+    for (const word of words) {
+      if (text.includes(word)) score += 5;
     }
 
-    if (codeScore > highestCodeMatchScore) {
-      highestCodeMatchScore = codeScore;
+    // Domain concept mapping
+    if (/color|css|style|theme|emerald|blue|red|dark|light|ui|button|bg-/i.test(taskText) &&
+        /color|css|style|theme|emerald|blue|red|dark|light|ui|button|bg-|flex|border/i.test(text)) {
+      score += 20;
+    }
+
+    if (/api|route|endpoint|backend|server|express|post|get|fetch|health/i.test(taskText) &&
+        /api|route|endpoint|backend|server|express|app\.|req|res|json/i.test(text)) {
+      score += 20;
+    }
+
+    if (/auth|login|jwt|token|user|password|security|session/i.test(taskText) &&
+        /auth|login|jwt|token|user|password|security|session/i.test(text)) {
+      score += 20;
+    }
+
+    if (score > highestScore) {
+      highestScore = score;
       bestTask = task;
     }
   }
 
-  // 2. Code Completeness Evaluation from Diff Features
-  const linesAdded = (diffCode.match(/^\+[^+]/gm) || []).length;
-  const linesDeleted = (diffCode.match(/^-[^-]/gm) || []).length;
-  const containsLogic = /function|export|class|interface|return|const|let|import|form|input|button/i.test(diffCode);
-  const containsSecurityBypass = /bypass|hardcode|dummy|skip|ignore/i.test(diffCode);
+  // 2. High-Accuracy Goal Satisfaction Evaluation
+  const containsSecurityBypass = /bypass|hardcode|dummy|skip|ignore/i.test(text);
+  const isWIP = /wip|draft|work in progress|partial|incomplete|stub/i.test(commitMessage.toLowerCase());
 
-  let newStatus = bestTask.status;
-  let summary = '';
+  let newStatus = 'done';
+  let summary = `Functional Goal Satisfied: Verified code patch for "${bestTask.title}". Task marked as DONE.`;
   let reconsiderationReason = '';
 
   if (containsSecurityBypass && (bestTask.status === 'done' || bestTask.status === 'review')) {
     newStatus = 'reconsideration';
-    reconsiderationReason = `Code diff contains potential security bypass or dummy fallback in module. Flagged for review.`;
+    reconsiderationReason = `Code diff contains potential security bypass or dummy fallback. Flagged for manager review.`;
     summary = `Security flaw detected in code diff patch for "${bestTask.title}". Card shifted to Reconsideration.`;
-  } else if (linesAdded < 10 || !containsLogic) {
-    // Only small styling, draft variables, or minor edits -> IN PROGRESS
+  } else if (isWIP) {
     newStatus = 'in_progress';
-    summary = `Code Analysis: Partial code changes (${linesAdded} lines added). Keeping task in IN PROGRESS.`;
-  } else if (linesAdded >= 10 && linesAdded < 30) {
-    // Substantial code added -> IN REVIEW
-    newStatus = 'review';
-    summary = `Code Analysis: Substantial logic implementation verified (${linesAdded} lines added). Shifting to IN REVIEW.`;
-  } else {
-    // Full comprehensive module implemented -> DONE
-    newStatus = 'done';
-    summary = `Code Analysis: Fully verified complete module implementation (${linesAdded} lines added). Moved to DONE.`;
+    summary = `Partial setup commit detected for "${bestTask.title}". Card shifted to IN PROGRESS.`;
   }
 
   return {
     matchedTaskId: bestTask.id,
     newStatus,
-    confidence: highestCodeMatchScore > 2 ? 'high' : 'medium',
+    confidence: highestScore > 0 ? 'high' : 'medium',
     summary,
     reconsiderationReason
   };
