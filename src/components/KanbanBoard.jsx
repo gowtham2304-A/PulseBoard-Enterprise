@@ -21,11 +21,17 @@ export function KanbanBoard({
             <div key={member.id} className="enterprise-panel rounded-xl p-5">
               <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-9 h-9 rounded-full object-cover border border-slate-200"
-                  />
+                  <span
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${
+                      member.name?.startsWith('V')
+                        ? 'bg-blue-600 text-white'
+                        : member.name?.startsWith('K')
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-indigo-600 text-white'
+                    }`}
+                  >
+                    {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                  </span>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                       <span>{member.name}</span>

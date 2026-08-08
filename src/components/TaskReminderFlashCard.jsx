@@ -44,11 +44,17 @@ export function TaskReminderFlashCard({ isOpen, onClose, tasks, currentUser }) {
         <div className={`px-5 pt-5 pb-4 ${urgentCount > 0 ? 'bg-rose-50 border-b border-rose-200' : 'border-b border-slate-100'}`}>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow"
-              />
+              <span
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0 shadow ${
+                  currentUser.name?.startsWith('V')
+                    ? 'bg-blue-600 text-white'
+                    : currentUser.name?.startsWith('K')
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-indigo-600 text-white'
+                }`}
+              >
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </span>
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
                   {urgentCount > 0 ? `⚡ Urgent! ${urgentCount} deadline${urgentCount > 1 ? 's' : ''} approaching` : `Welcome back, ${currentUser.name}!`}
