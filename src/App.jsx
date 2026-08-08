@@ -90,11 +90,25 @@ export default function App() {
       }
     }
 
+    async function loadActivity() {
+      try {
+        const res = await fetch(`${API_BASE}/activity`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.activity) setCommitLog(data.activity);
+        }
+      } catch (err) {}
+    }
+
     loadTasks();
     loadSession();
+    loadActivity();
 
-    // Poll tasks from DB every 5 seconds
-    const interval = setInterval(loadTasks, 5000);
+    // Poll tasks and live git activity from DB every 5 seconds
+    const interval = setInterval(() => {
+      loadTasks();
+      loadActivity();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 

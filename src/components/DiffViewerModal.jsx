@@ -7,9 +7,15 @@ export function DiffViewerModal({ task, commitLog, onClose, onUpdateSources }) {
 
   if (!task) return null;
 
-  const matchedLog = commitLog.find(
-    (log) => log.matchedTaskId === task.id || log.matchedTask === task.title
-  );
+  const matchedLog =
+    commitLog.find(
+      (log) =>
+        log.matchedTaskId === task.id ||
+        log.matchedTaskId === task._id ||
+        log.matchedTask === task.title ||
+        (log.matchedTask && task.title && log.matchedTask.toLowerCase().includes(task.title.toLowerCase())) ||
+        (log.matchedTask && task.key && log.matchedTask.includes(task.key))
+    ) || (commitLog.length > 0 ? commitLog[0] : null);
 
   const sources = task?.sources || {};
   const totalSources = 6;
