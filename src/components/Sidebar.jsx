@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github, Download, BarChart2 } from 'lucide-react';
+import { LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github, Download, BarChart2, FileText } from 'lucide-react';
 
 export function Sidebar({
   onToggleChat,
@@ -11,7 +11,8 @@ export function Sidebar({
   viewMode,
   onViewModeChange,
   onDownloadCSV,
-  onOpenTeamOverview
+  onOpenTeamOverview,
+  onOpenReportExport
 }) {
   return (
     <aside className="w-56 bg-white border-r border-slate-100 h-screen sticky top-0 flex flex-col justify-between shrink-0 select-none z-30">
@@ -96,13 +97,6 @@ export function Sidebar({
           <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             Reports
           </div>
-          <button
-            onClick={onDownloadCSV}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all"
-          >
-            <Download className="w-4 h-4 text-blue-600" />
-            <span>Download CSV Report</span>
-          </button>
           {currentUser?.isManager && (
             <button
               onClick={onOpenTeamOverview}
@@ -112,7 +106,15 @@ export function Sidebar({
               <span>Team Overview</span>
             </button>
           )}
+          <button
+            onClick={onOpenReportExport}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 border border-blue-700 shadow-sm shadow-blue-500/20 transition-all"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Reports & Export</span>
+          </button>
         </div>
+
 
         {/* Repo Watching Card */}
         <div className="mx-3 mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">

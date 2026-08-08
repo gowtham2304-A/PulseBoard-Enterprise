@@ -3,7 +3,9 @@ import { X, CheckCircle2, Clock, AlertTriangle, Timer, Flame } from 'lucide-reac
 
 function getDeadlineUrgency(deadline, status) {
   if (!deadline || status === 'done') return { hoursLeft: Infinity, label: null, isUrgent: false, isOverdue: false };
-  const diffMs = new Date(deadline) - new Date();
+  const end = new Date(deadline);
+  if (isNaN(end.getTime())) return { hoursLeft: Infinity, label: null, isUrgent: false, isOverdue: false };
+  const diffMs = end - new Date();
   const diffHours = diffMs / (1000 * 60 * 60);
   if (diffHours <= 0) return { hoursLeft: diffHours, label: 'OVERDUE', isUrgent: true, isOverdue: true };
   if (diffHours < 1) return { hoursLeft: diffHours, label: `${Math.ceil(diffHours * 60)}m left`, isUrgent: true, isOverdue: false };

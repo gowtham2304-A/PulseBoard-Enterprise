@@ -49,6 +49,11 @@ app.post('/api/tasks', async (req, res) => {
   const calculatedPriority = await scoreTaskPriority(task.title, task.description || '', currentTasks, GEMINI_API_KEY);
   task.priority = calculatedPriority;
 
+  // Ensure last activity timestamp is set
+  if (!task.last_activity_time) {
+    task.last_activity_time = new Date().toISOString();
+  }
+
   await store.addTask(task);
   const tasks = await store.getTasks();
   res.json({ status: 'success', task, tasks });

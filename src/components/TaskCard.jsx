@@ -7,6 +7,7 @@ function getDeadlineInfo(deadline, status) {
   if (!deadline || status === 'done') return null;
   const now = new Date();
   const end = new Date(deadline);
+  if (isNaN(end.getTime())) return null;
   const diffMs = end - now;
   const diffHours = diffMs / (1000 * 60 * 60);
 
@@ -28,7 +29,9 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
 
   const isStale = React.useMemo(() => {
     if (task.status === 'done' || !task.last_activity_time) return false;
-    const diffHours = (new Date() - new Date(task.last_activity_time)) / (1000 * 60 * 60);
+    const lastActive = new Date(task.last_activity_time);
+    if (isNaN(lastActive.getTime())) return false;
+    const diffHours = (new Date() - lastActive) / (1000 * 60 * 60);
     return diffHours >= 10;
   }, [task.last_activity_time, task.status]);
 

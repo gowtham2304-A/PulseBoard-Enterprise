@@ -3,7 +3,9 @@ import { X, CheckCircle2, Clock, AlertTriangle, Timer, TrendingUp, User } from '
 
 function getDeadlineInfo(deadline, status) {
   if (!deadline || status === 'done') return null;
-  const diffMs = new Date(deadline) - new Date();
+  const end = new Date(deadline);
+  if (isNaN(end.getTime())) return null;
+  const diffMs = end - new Date();
   const diffHours = diffMs / (1000 * 60 * 60);
   if (diffHours <= 0) return { label: 'OVERDUE', isOverdue: true, isUrgent: true, hoursLeft: diffHours };
   if (diffHours < 1) return { label: `${Math.ceil(diffHours * 60)}m left`, isOverdue: false, isUrgent: true, hoursLeft: diffHours };

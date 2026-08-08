@@ -9,6 +9,7 @@ import { MemberSelectModal, INITIAL_DEMO_MEMBERS } from './components/MemberSele
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
+import { ReportExportModal } from './components/ReportExportModal';
 import { AlertCircle, Clock } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
@@ -35,12 +36,26 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssignee, setSelectedAssignee] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');       // Advanced Bounty
+  const [selectedCategory, setSelectedCategory] = useState('all');   // Advanced Bounty
+  const [missingDataFilter, setMissingDataFilter] = useState('none'); // Advanced Bounty
   const [sortBy, setSortBy] = useState('default');
   const [viewMode, setViewMode] = useState('columns');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedTaskForDiff, setSelectedTaskForDiff] = useState(null);
   const [isFlashCardOpen, setIsFlashCardOpen] = useState(false);
   const [isManagerOverviewOpen, setIsManagerOverviewOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false); // Elite Bounty
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedAssignee('all');
+    setSelectedPriority('all');
+    setSelectedStatus('all');
+    setSelectedCategory('all');
+    setMissingDataFilter('none');
+    setSortBy('default');
+  };
 
   // ─── Load Tasks + Active Session from MongoDB on mount ──────────────────────
   useEffect(() => {
@@ -179,6 +194,20 @@ export default function App() {
     );
   };
 
+  // ─── Core Bounty: Update Task Sources ─────────────────────────────
+  const handleUpdateSources = async (taskId, sources) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sources })
+      });
+    } catch (e) {}
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, sources } : t))
+    );
+  };
+
   // ─── CSV Export — reads from DB tasks state ───────────────────────────────────
   const handleDownloadCSV = () => {
     if (tasks.length === 0) { alert('No tasks on board to export.'); return; }
@@ -208,6 +237,7 @@ export default function App() {
   // ─── Derived State ────────────────────────────────────────────────────────────
   const filteredAndSortedTasks = useMemo(() => {
     let result = [...tasks];
+    // Text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(t =>
@@ -218,8 +248,28 @@ export default function App() {
         (t.label && t.label.toLowerCase().includes(q))
       );
     }
+    // Filters
     if (selectedAssignee !== 'all') result = result.filter(t => t.assignee === selectedAssignee);
     if (selectedPriority !== 'all') result = result.filter(t => t.priority === selectedPriority);
+    if (selectedStatus !== 'all') result = result.filter(t => t.status === selectedStatus);      // Advanced Bounty
+    if (selectedCategory !== 'all') result = result.filter(t => t.label === selectedCategory);  // Advanced Bounty
+    
+    // Missing Data Flag filter — Advanced Bounty
+    if (missingDataFilter === 'missing_sources') {
+      result = result.filter(t => Object.values(t.sources || {}).filter(Boolean).length < 6);
+    } else if (missingDataFilter === 'overdue') {
+      result = result.filter(t => {
+        if (!t.deadline || t.status === 'done') return false;
+        return new Date(t.deadline) < new Date();
+      });
+    } else if (missingDataFilter === 'inactive') {
+      result = result.filter(t => {
+        if (t.status === 'done' || !t.last_activity_time) return false;
+        return (new Date() - new Date(t.last_activity_time)) / 3600000 >= 10;
+      });
+    }
+
+    // Sorting
     if (sortBy === 'priority') {
       const pOrder = { high: 1, medium: 2, low: 3 };
       result.sort((a, b) => pOrder[a.priority] - pOrder[b.priority]);
@@ -243,7 +293,9 @@ export default function App() {
   const staleTasks = useMemo(() =>
     tasks.filter(t => {
       if (t.status === 'done' || !t.last_activity_time) return false;
-      return (new Date() - new Date(t.last_activity_time)) / 3600000 >= 10;
+      const lastActive = new Date(t.last_activity_time);
+      if (isNaN(lastActive.getTime())) return false;
+      return (new Date() - lastActive) / 3600000 >= 10;
     }), [tasks]);
 
   // Deadline-urgent tasks for manager (overdue or <1h remaining)
@@ -278,6 +330,7 @@ export default function App() {
         onViewModeChange={setViewMode}
         onDownloadCSV={handleDownloadCSV}
         onOpenTeamOverview={() => setIsManagerOverviewOpen(true)}
+        onOpenReportExport={() => setIsReportModalOpen(true)}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -288,9 +341,16 @@ export default function App() {
           onSelectAssignee={setSelectedAssignee}
           selectedPriority={selectedPriority}
           onPriorityChange={setSelectedPriority}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          missingDataFilter={missingDataFilter}
+          onMissingDataFilterChange={setMissingDataFilter}
           sortBy={sortBy}
           onSortByChange={setSortBy}
           onClearBoard={handleClearBoard}
+          onResetFilters={handleResetFilters}
         />
 
         {/* ── Manager: Deadline Overdue / Urgent Banner ── */}
@@ -363,6 +423,7 @@ export default function App() {
         task={selectedTaskForDiff}
         commitLog={commitLog}
         onClose={() => setSelectedTaskForDiff(null)}
+        onUpdateSources={handleUpdateSources}
       />
 
       <MemberSelectModal
@@ -391,6 +452,14 @@ export default function App() {
       <ManagerOverviewPanel
         isOpen={isManagerOverviewOpen}
         onClose={() => setIsManagerOverviewOpen(false)}
+        tasks={tasks}
+        teamMembers={demoMembers}
+      />
+
+      {/* Elite Bounty: Report Export Modal */}
+      <ReportExportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
         tasks={tasks}
         teamMembers={demoMembers}
       />
