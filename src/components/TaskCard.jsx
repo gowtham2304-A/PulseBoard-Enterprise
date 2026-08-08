@@ -125,66 +125,67 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
         </div>
       )}
 
-      {/* Set Deadline button + status move */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-500">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            title={task.assignee}
-            className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-              task.assignee?.startsWith('V')
-                ? 'bg-blue-600 text-white'
-                : task.assignee?.startsWith('K')
-                ? 'bg-emerald-600 text-white'
-                : 'bg-indigo-600 text-white'
-            }`}
-          >
-            {task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}
-          </span>
-          <div className="flex flex-col min-w-0">
-            <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[90px]">
+      {/* Footer: Row 1 = Assignee + Move Select, Row 2 = Action Links */}
+      <div className="pt-2.5 border-t border-slate-100 space-y-2">
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              title={task.assignee}
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${
+                task.assignee?.startsWith('V')
+                  ? 'bg-blue-600 text-white'
+                  : task.assignee?.startsWith('K')
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-indigo-600 text-white'
+              }`}
+            >
+              {task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}
+            </span>
+            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[85px]">
               {task.assignee}
             </span>
-            <div className="flex gap-2">
-              {!isStale && task.status !== 'done' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSimulateInactivity(task.id);
-                  }}
-                  className="text-[8px] text-blue-600 hover:underline font-bold text-left"
-                >
-                  Simulate 10h Idle
-                </button>
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeadlineModal(true);
-                }}
-                className="text-[8px] text-amber-600 hover:underline font-bold flex items-center gap-0.5"
-              >
-                <Clock className="w-2.5 h-2.5" />
-                {task.deadline ? 'Edit Deadline' : 'Set Deadline'}
-              </button>
-            </div>
           </div>
+
+          <select
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onManualMove(task.id, e.target.value);
+            }}
+            value={task.status}
+            className="bg-slate-50 text-slate-700 text-[10px] rounded px-1.5 py-0.5 border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium shrink-0 max-w-[110px]"
+          >
+            {columns.map((col) => (
+              <option key={col.id} value={col.id}>
+                Move: {col.title}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <select
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            e.stopPropagation();
-            onManualMove(task.id, e.target.value);
-          }}
-          value={task.status}
-          className="bg-slate-50 text-slate-700 text-[10px] rounded px-1.5 py-0.5 border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
-        >
-          {columns.map((col) => (
-            <option key={col.id} value={col.id}>
-              Move: {col.title}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center justify-between text-[9px] pt-0.5">
+          {!isStale && task.status !== 'done' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSimulateInactivity(task.id);
+              }}
+              className="text-blue-600 hover:underline font-bold"
+            >
+              Simulate 10h Idle
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeadlineModal(true);
+            }}
+            className="text-amber-600 hover:underline font-bold flex items-center gap-0.5 ml-auto"
+          >
+            <Clock className="w-2.5 h-2.5" />
+            {task.deadline ? 'Edit Deadline' : 'Set Deadline'}
+          </button>
+        </div>
       </div>
 
       {/* Deadline Modal — rendered inline, stops propagation */}
