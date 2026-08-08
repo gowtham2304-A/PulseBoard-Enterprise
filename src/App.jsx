@@ -44,6 +44,7 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedTaskForDiff, setSelectedTaskForDiff] = useState(null);
   const [isFlashCardOpen, setIsFlashCardOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isManagerOverviewOpen, setIsManagerOverviewOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false); // Elite Bounty
 
@@ -320,6 +321,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 selection:bg-blue-600 selection:text-white">
       <Sidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
         currentUser={currentUser}

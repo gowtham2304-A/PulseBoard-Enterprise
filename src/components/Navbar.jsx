@@ -95,16 +95,28 @@ export function Navbar({
           </button>
           {TEAM_MEMBERS.map((member) => {
             const isSelected = selectedAssignee === member.name;
+            const firstName = member.name.split(' ')[0];
+            const initialColor = {
+              Gowtham: 'bg-indigo-600 text-white',
+              Vansh: 'bg-blue-600 text-white',
+              Khidmat: 'bg-emerald-600 text-white',
+            }[firstName] || 'bg-slate-700 text-white';
+
             return (
               <button
                 key={member.id}
                 onClick={() => onSelectAssignee(isSelected ? 'all' : member.name)}
                 title={`Filter: ${member.name}`}
-                className={`relative p-0.5 rounded-full transition-all ${
-                  isSelected ? 'ring-2 ring-blue-500 ring-offset-1 scale-105' : 'opacity-70 hover:opacity-100'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  isSelected
+                    ? 'bg-white text-blue-600 shadow-sm border border-blue-200 ring-1 ring-blue-500'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
-                <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover border border-slate-200" />
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${initialColor}`}>
+                  {firstName.charAt(0).toUpperCase()}
+                </span>
+                <span>{firstName}</span>
               </button>
             );
           })}

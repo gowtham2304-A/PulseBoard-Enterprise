@@ -128,12 +128,18 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
       {/* Set Deadline button + status move */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-500">
         <div className="flex items-center gap-1.5 min-w-0">
-          <img
-            src={task.assigneeAvatar}
-            alt={task.assignee}
-            className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0"
+          <span
             title={task.assignee}
-          />
+            className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+              task.assignee?.startsWith('V')
+                ? 'bg-blue-600 text-white'
+                : task.assignee?.startsWith('K')
+                ? 'bg-emerald-600 text-white'
+                : 'bg-indigo-600 text-white'
+            }`}
+          >
+            {task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}
+          </span>
           <div className="flex flex-col min-w-0">
             <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[90px]">
               {task.assignee}

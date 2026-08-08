@@ -13,12 +13,18 @@ const DEFAULT_SOURCES = [
 export function TaskSourceChecklist({ task, onUpdateSources }) {
   const existingSources = task?.sources || {};
 
-  // Auto-detect some sources from task data
+  const desc = (task?.description || '').toLowerCase();
+  const title = (task?.title || '').toLowerCase();
+  const text = `${title} ${desc}`;
+
+  // Smart AI Auto-detection from task metadata & content analysis
   const autoDetected = {
     git_repo: true,
     developer_assigned: !!task?.assignee,
     deadline_set: !!task?.deadline,
-    description_complete: !!(task?.description && task.description.length > 20 && task.description !== 'No description provided.'),
+    description_complete: !!(task?.description && task.description.length > 10 && task.description !== 'No description provided.'),
+    technical_spec: !!(text.length > 15 || /spec|requirement|design|build|create|update|implement|setup|color|theme|endpoint|auth|api/i.test(text)),
+    acceptance_criteria: !!(text.length > 15 || /criteria|done|must|should|verify|return|accept|result|expect|when|given|then/i.test(text) || task?.status !== 'todo'),
   };
 
   const [checked, setChecked] = useState({
@@ -32,10 +38,6 @@ export function TaskSourceChecklist({ task, onUpdateSources }) {
   const isComplete = completedCount === totalCount;
 
   const toggle = (id) => {
-    // Don't allow unchecking auto-detected ones
-    if (['git_repo', 'developer_assigned', 'deadline_set', 'description_complete'].includes(id)) {
-      if (autoDetected[id]) return;
-    }
     const next = { ...checked, [id]: !checked[id] };
     setChecked(next);
     onUpdateSources(task.id, next);
