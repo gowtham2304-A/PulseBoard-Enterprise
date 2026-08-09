@@ -38,10 +38,14 @@ const TaskSchema = new mongoose.Schema({
   confidence: String
 });
 
-// Activity Log Schema
+// Activity Log Schema (Provider-Agnostic with backward compatible sha field)
 const ActivitySchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  sha: String,
+  provider: { type: String, default: 'github' },
+  repositoryId: String,
+  repositoryName: String,
+  changeId: String,
+  sha: String, // Backward compatibility alias for changeId
   author: String,
   message: String,
   matchedTask: String,
@@ -52,7 +56,7 @@ const ActivitySchema = new mongoose.Schema({
   timestamp: { type: String, default: () => new Date().toISOString() }
 });
 
-// Active Session Schema (Tracks who is logged in across devices/refreshes)
+// Active Session Schema
 const SessionSchema = new mongoose.Schema({
   key: { type: String, default: 'active_session', unique: true },
   currentUser: {
@@ -152,21 +156,38 @@ class Store {
 
   async addActivityLog(logEntry) {
     try {
-      const log = new Activity(logEntry);
+      const entry = {
+        ...logEntry,
+        changeId: logEntry.changeId || logEntry.sha,
+        sha: logEntry.sha || logEntry.changeId
+      };
+      const log = new Activity(entry);
       await log.save();
     } catch (e) {
       console.error('Error adding activity log to MongoDB:', e.message);
     }
   }
 
-  async hasProcessedSHA(sha) {
-    if (!sha) return false;
+  async hasProcessedChange(changeId) {
+    if (!changeId) return false;
     try {
-      const match = await Activity.findOne({ sha });
+      const shortId = changeId.substring(0, 7);
+      const match = await Activity.findOne({
+        $or: [
+          { changeId: changeId },
+          { changeId: shortId },
+          { sha: changeId },
+          { sha: shortId }
+        ]
+      });
       return !!match;
     } catch (e) {
       return false;
     }
+  }
+
+  async hasProcessedSHA(sha) {
+    return this.hasProcessedChange(sha);
   }
 }
 

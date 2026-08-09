@@ -1,124 +1,52 @@
-import { store } from './store.js';
-import { analyzeDiffWithGemini } from './analyzer.js';
+import { getSourceControlProvider } from './providers/factory.js';
+import { pipeline } from './pipeline.js';
 
-export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000) {
-  if (!owner || !repo || !token) {
-    console.log('[Poller] GitHub token/repo not fully configured. Using simulation mode for commit pushes.');
+/**
+ * Polling Event Source runner. Periodically checks configured provider for changes,
+ * normalizes changes, and routes them to the PulseBoard processing pipeline.
+ */
+export function startSourceControlPoller(providerName = process.env.SOURCE_CONTROL_PROVIDER || 'github', intervalMs = 10000) {
+  let provider;
+  try {
+    provider = getSourceControlProvider(providerName);
+  } catch (err) {
+    console.log(`[Poller] Provider error: ${err.message}`);
     return;
   }
 
-  console.log(`[Poller] Started watching GitHub repo: ${owner}/${repo} (Interval: ${intervalMs}ms)`);
+  if (typeof provider.isConfigured === 'function' && !provider.isConfigured()) {
+    console.log(`[Poller] Provider (${provider.getName()}) missing token/credentials. Running in manual simulation mode.`);
+    return;
+  }
+
+  console.log(`[Poller] Started watching source control server via provider: "${provider.getName()}" (Interval: ${intervalMs}ms)`);
 
   setInterval(async () => {
     try {
-      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'PulseBoard-Autonomous-Agent'
-        }
-      });
+      const changes = await provider.fetchChanges();
+      if (!Array.isArray(changes) || changes.length === 0) return;
 
-      if (!response.ok) return;
+      const latestChange = changes[0];
+      const changeId = latestChange.sha || latestChange.id;
+      if (!changeId) return;
 
-      const commits = await response.json();
-      if (!Array.isArray(commits) || commits.length === 0) return;
+      // Fetch detail diffs for this change
+      const rawDetails = await provider.fetchChangeDetails(changeId);
 
-      const latestCommit = commits[0];
-      const sha = latestCommit.sha.substring(0, 7);
+      // Convert provider payload into PulseBoard NormalizedChangeEvent
+      const normalizedEvent = provider.normalizeChange(latestChange, rawDetails);
 
-      const hasProcessed = await store.hasProcessedSHA(sha);
-      if (hasProcessed) {
-        return; // Already processed
-      }
-
-      // Fetch single commit details to get raw diff patch
-      const detailRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${latestCommit.sha}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'PulseBoard-Autonomous-Agent'
-        }
-      });
-
-      let diffPatch = '';
-      let fileList = [];
-      if (detailRes.ok) {
-        const detail = await detailRes.json();
-        fileList = detail.files ? detail.files.map(f => f.filename) : [];
-        diffPatch = detail.files ? detail.files.map(f => `--- ${f.filename}\n+++ ${f.filename}\n${f.patch || ''}`).join('\n\n') : '';
-      }
-
-      console.log(`[Poller] New live commit detected on GitHub: #${sha} "${latestCommit.commit.message}"`);
-
-      const currentTasks = await store.getTasks();
-      if (currentTasks.length === 0) {
-        console.log('[Poller] No tasks on board yet. Skipping analysis.');
-        await store.addActivityLog({
-          id: Date.now().toString(),
-          sha,
-          author: latestCommit.commit.author.name || 'GitHub Developer',
-          message: latestCommit.commit.message,
-          matchedTask: 'No tasks on board',
-          matchedTaskId: null,
-          statusShift: 'none',
-          summary: 'Commit detected but no tasks to match against.',
-          confidence: 'low',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-
-      // Run Gemini LLM analysis
-      const analysis = await analyzeDiffWithGemini(
-        latestCommit.commit.message,
-        diffPatch || 'diff --git a/src/app.js b/src/app.js\n+ updated code',
-        currentTasks,
-        apiKey
-      );
-
-      if (!analysis || !analysis.matchedTaskId) {
-        console.log('[Poller] No matching task found for this commit.');
-        await store.addActivityLog({
-          id: Date.now().toString(),
-          sha,
-          author: latestCommit.commit.author.name || 'GitHub Developer',
-          message: latestCommit.commit.message,
-          matchedTask: 'No match found',
-          matchedTaskId: null,
-          statusShift: 'none',
-          summary: analysis?.summary || 'Could not match commit to any task.',
-          confidence: 'low',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-
-      // Update store state
-      const updatedTask = await store.updateTaskStatus(analysis.matchedTaskId, {
-        status: analysis.newStatus,
-        last_summary: analysis.summary,
-        reconsideration_reason: analysis.reconsiderationReason || '',
-        confidence: analysis.confidence,
-        last_activity_time: new Date().toISOString() // reset inactivity
-      });
-
-      // Log event
-      await store.addActivityLog({
-        id: Date.now().toString(),
-        sha,
-        author: latestCommit.commit.author.name || 'GitHub Developer',
-        message: latestCommit.commit.message,
-        matchedTask: updatedTask ? updatedTask.title : 'Task matched',
-        matchedTaskId: analysis.matchedTaskId,
-        statusShift: `➔ ${analysis.newStatus}`,
-        summary: analysis.summary,
-        confidence: analysis.confidence,
-        timestamp: new Date().toISOString()
-      });
-
+      // Route event to central pipeline
+      await pipeline.processChangeEvent(normalizedEvent);
     } catch (err) {
       console.error('[Poller Error]:', err.message);
     }
   }, intervalMs);
+}
+
+/**
+ * Backward compatibility alias for startGitHubPoller
+ */
+export function startGitHubPoller(owner, repo, token, apiKey, intervalMs = 10000) {
+  return startSourceControlPoller('github', intervalMs);
 }

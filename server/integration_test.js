@@ -1,4 +1,4 @@
-const BASE = 'https://pulseboard-enterprise.onrender.com';
+const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:5000';
 
 async function req(path, opts) {
   const res = await fetch(BASE + path, opts);
@@ -19,11 +19,11 @@ async function run() {
   console.log(tasksRes);
 
   console.log('\n3) POST /api/tasks (create)');
-  const newTask = { title: 'Integration test task', status: 'todo', assignee: 'Tester', priority: 'low' };
+  const newTask = { id: `task-itest-${Date.now()}`, title: 'Integration test task', status: 'todo', assignee: 'Tester', priority: 'low' };
   const createRes = await req('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTask) });
   console.log(createRes);
 
-  const createdId = createRes.body && createRes.body.task && createRes.body.task._id ? createRes.body.task._id : (createRes.body && createRes.body.task && createRes.body.task.id) || null;
+  const createdId = createRes.body && createRes.body.task && createRes.body.task.id ? createRes.body.task.id : null;
 
   if (!createdId) {
     console.log('Could not determine created task id, will skip PATCH.');
@@ -34,7 +34,7 @@ async function run() {
   }
 
   console.log('\n5) POST /api/commit (simulate commit)');
-  const commitPayload = { sha: 'itest123', author: 'Tester', message: 'wip integration', diff: 'diff --git a/file b/file\n+ test' };
+  const commitPayload = { sha: `itest${Math.random().toString(16).substring(2, 7)}`, author: 'Tester', message: 'wip integration test', diff: 'diff --git a/file b/file\n+ test' };
   const commitRes = await req('/api/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commitPayload) });
   console.log(commitRes);
 

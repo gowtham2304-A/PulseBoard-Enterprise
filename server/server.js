@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { store } from './store.js';
-import { analyzeDiffWithGemini, scoreTaskPriority } from './analyzer.js';
-import { startGitHubPoller } from './poller.js';
+import { scoreTaskPriority } from './analyzer.js';
+import { pipeline } from './pipeline.js';
+import { startSourceControlPoller } from './poller.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
@@ -14,6 +15,11 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 app.use(cors());
 app.use(express.json());
+
+// 0. GET Health Check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', provider: process.env.SOURCE_CONTROL_PROVIDER || 'github', timestamp: new Date().toISOString() });
+});
 
 // 1. GET Tasks (MongoDB Async)
 app.get('/api/tasks', async (req, res) => {
@@ -77,46 +83,59 @@ app.get('/api/activity', async (req, res) => {
   res.json({ status: 'success', activity });
 });
 
-// 6. POST Commit Push (Processes commit diff with Gemini LLM & MongoDB Async)
+// 6. POST Commit/Change Event (Processes change via normalized pipeline)
 app.post('/api/commit', async (req, res) => {
-  const { sha, author, message, diff } = req.body;
-  const commitSHA = sha || Math.random().toString(16).substring(2, 9);
-  const commitAuthor = author || 'Developer';
-  const commitMsg = message || 'wip update';
-  const commitDiff = diff || 'diff --git a/src/app.js b/src/app.js\n+ updated code';
+  const body = req.body || {};
+  let event;
 
-  const currentTasks = await store.getTasks();
-  const analysis = await analyzeDiffWithGemini(commitMsg, commitDiff, currentTasks, GEMINI_API_KEY);
+  if (body.change && body.provider) {
+    // Already normalized event
+    event = body;
+  } else {
+    // Construct NormalizedChangeEvent from simulated commit payload
+    const commitSHA = body.sha || Math.random().toString(16).substring(2, 9);
+    const commitAuthor = body.author || 'Developer';
+    const commitMsg = body.message || 'wip update';
+    const commitDiff = body.diff || 'diff --git a/src/app.js b/src/app.js\n+ updated code';
 
-  const updatedTask = await store.updateTaskStatus(analysis.matchedTaskId, {
-    status: analysis.newStatus,
-    last_summary: analysis.summary,
-    reconsideration_reason: analysis.reconsiderationReason || '',
-    confidence: analysis.confidence
-  });
+    event = {
+      provider: process.env.SOURCE_CONTROL_PROVIDER || 'github',
+      repository: {
+        id: `${process.env.GITHUB_OWNER || 'owner'}/${process.env.GITHUB_REPO || 'repo'}`,
+        name: process.env.GITHUB_REPO || 'repo',
+        url: `https://github.com/${process.env.GITHUB_OWNER || 'owner'}/${process.env.GITHUB_REPO || 'repo'}`
+      },
+      change: {
+        id: commitSHA,
+        message: commitMsg,
+        author: {
+          name: commitAuthor,
+          email: ''
+        },
+        timestamp: new Date().toISOString()
+      },
+      changes: [
+        {
+          path: 'src/app.js',
+          status: 'modified',
+          additions: 10,
+          deletions: 0,
+          patch: commitDiff
+        }
+      ],
+      rawDiff: commitDiff
+    };
+  }
 
-  const logEntry = {
-    id: Date.now().toString(),
-    sha: commitSHA,
-    author: commitAuthor,
-    message: commitMsg,
-    matchedTask: updatedTask ? updatedTask.title : 'Matched task',
-    matchedTaskId: analysis.matchedTaskId,
-    statusShift: `➔ ${analysis.newStatus}`,
-    summary: analysis.summary,
-    confidence: analysis.confidence,
-    timestamp: new Date().toISOString()
-  };
-
-  await store.addActivityLog(logEntry);
+  const result = await pipeline.processChangeEvent(event);
 
   const tasks = await store.getTasks();
   const activity = await store.getActivityLog();
 
   res.json({
     status: 'success',
-    analysis,
-    updatedTask,
+    analysis: result.analysis,
+    updatedTask: result.updatedTask,
     tasks,
     activity
   });
@@ -216,10 +235,6 @@ Be concise, use markdown, emojis, bold headers, and bullet points.`;
 
 app.listen(PORT, () => {
   console.log(`⚡ PulseBoard Express Backend running on http://localhost:${PORT}`);
-  startGitHubPoller(
-    process.env.GITHUB_OWNER,
-    process.env.GITHUB_REPO,
-    process.env.GITHUB_TOKEN,
-    GEMINI_API_KEY
-  );
+  console.log(`🔗 Active Provider: "${process.env.SOURCE_CONTROL_PROVIDER || 'github'}"`);
+  startSourceControlPoller();
 });
