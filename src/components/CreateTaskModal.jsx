@@ -31,6 +31,7 @@ export function CreateTaskModal({ isOpen, onClose, onAddTask, members }) {
       last_summary: 'Task created by Manager.',
       reconsideration_reason: '',
       last_updated: 'Just now',
+      last_activity_time: new Date().toISOString(),
       deadline: deadlineIso,
       confidence: 'high'
     };

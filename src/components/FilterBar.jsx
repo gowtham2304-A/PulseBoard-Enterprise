@@ -83,11 +83,17 @@ export function FilterBar({
                   isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#0B0F17] scale-105' : 'opacity-70 hover:opacity-100'
                 }`}
               >
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-7 h-7 rounded-full object-cover border border-slate-700"
-                />
+                <span
+                  className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    member.name?.startsWith('V')
+                      ? 'bg-blue-600 text-white'
+                      : member.name?.startsWith('K')
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-indigo-600 text-white'
+                  }`}
+                >
+                  {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                </span>
                 <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-900 text-slate-200 text-[10px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-50 border border-slate-700">
                   {member.name}
                 </span>

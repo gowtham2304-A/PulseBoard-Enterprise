@@ -3,7 +3,9 @@ import { X, CheckCircle2, Clock, AlertTriangle, Timer, Flame } from 'lucide-reac
 
 function getDeadlineUrgency(deadline, status) {
   if (!deadline || status === 'done') return { hoursLeft: Infinity, label: null, isUrgent: false, isOverdue: false };
-  const diffMs = new Date(deadline) - new Date();
+  const end = new Date(deadline);
+  if (isNaN(end.getTime())) return { hoursLeft: Infinity, label: null, isUrgent: false, isOverdue: false };
+  const diffMs = end - new Date();
   const diffHours = diffMs / (1000 * 60 * 60);
   if (diffHours <= 0) return { hoursLeft: diffHours, label: 'OVERDUE', isUrgent: true, isOverdue: true };
   if (diffHours < 1) return { hoursLeft: diffHours, label: `${Math.ceil(diffHours * 60)}m left`, isUrgent: true, isOverdue: false };
@@ -42,11 +44,17 @@ export function TaskReminderFlashCard({ isOpen, onClose, tasks, currentUser }) {
         <div className={`px-5 pt-5 pb-4 ${urgentCount > 0 ? 'bg-rose-50 border-b border-rose-200' : 'border-b border-slate-100'}`}>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow"
-              />
+              <span
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0 shadow ${
+                  currentUser.name?.startsWith('V')
+                    ? 'bg-blue-600 text-white'
+                    : currentUser.name?.startsWith('K')
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-indigo-600 text-white'
+                }`}
+              >
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </span>
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
                   {urgentCount > 0 ? `⚡ Urgent! ${urgentCount} deadline${urgentCount > 1 ? 's' : ''} approaching` : `Welcome back, ${currentUser.name}!`}

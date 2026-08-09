@@ -7,12 +7,11 @@ export const COLUMNS = [
 ];
 
 export const TEAM_MEMBERS = [
-  { id: 'khidmat', name: 'Khidmat', role: 'Developer', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80', initials: 'KH', color: 'bg-cyan-500' },
-  { id: 'vansh', name: 'Vansh', role: 'Developer', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', initials: 'VN', color: 'bg-indigo-500' },
+  { id: 'gowtham', name: 'Gowtham', role: 'Engineering Manager', isManager: true, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', initials: 'GW', color: 'bg-indigo-600' },
+  { id: 'khidmat', name: 'Khidmat', role: 'Developer', isManager: false, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80', initials: 'KH', color: 'bg-emerald-600' },
+  { id: 'vansh', name: 'Vansh', role: 'Developer', isManager: false, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', initials: 'VN', color: 'bg-blue-600' },
 ];
 
 export const INITIAL_TASKS = [];
-
 export const SAMPLE_COMMITS = [];
-
 export const INITIAL_COMMIT_LOG = [];

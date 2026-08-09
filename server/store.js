@@ -35,6 +35,7 @@ const TaskSchema = new mongoose.Schema({
   last_updated: { type: String, default: () => new Date().toISOString() },
   last_activity_time: { type: String, default: () => new Date().toISOString() },
   deadline: { type: String, default: null },
+  sources: { type: Object, default: {} },
   confidence: String
 });
 
@@ -115,11 +116,14 @@ class Store {
 
   async addTask(taskData) {
     try {
-      const task = new Task({
-        ...taskData,
-        last_activity_time: taskData.last_activity_time || new Date().toISOString()
-      });
-      await task.save();
+      const task = await Task.findOneAndUpdate(
+        { id: taskData.id },
+        {
+          ...taskData,
+          last_activity_time: taskData.last_activity_time || new Date().toISOString()
+        },
+        { upsert: true, new: true }
+      );
       return task;
     } catch (e) {
       console.error('Error adding task to MongoDB:', e.message);

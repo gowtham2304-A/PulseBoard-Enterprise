@@ -21,11 +21,17 @@ export function KanbanBoard({
             <div key={member.id} className="enterprise-panel rounded-xl p-5">
               <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-9 h-9 rounded-full object-cover border border-slate-200"
-                  />
+                  <span
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${
+                      member.name?.startsWith('V')
+                        ? 'bg-blue-600 text-white'
+                        : member.name?.startsWith('K')
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-indigo-600 text-white'
+                    }`}
+                  >
+                    {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                  </span>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                       <span>{member.name}</span>
@@ -72,11 +78,11 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex gap-3 px-3 py-4 overflow-x-auto kanban-scroll">
+    <div className="flex gap-3 p-4 w-full overflow-x-auto justify-start kanban-scroll">
       {columns.map((col) => (
         <div
           key={col.id}
-          className="w-[200px] sm:w-[230px] md:w-[260px] lg:w-[300px] xl:w-[320px] kanban-column rounded-2xl p-3 flex-shrink-0"
+          className="w-[220px] sm:w-[240px] md:w-[250px] kanban-column rounded-2xl p-3 flex-shrink-0"
         >
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-bold uppercase text-slate-600 tracking-wider">{col.title}</h4>
