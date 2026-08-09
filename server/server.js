@@ -5,6 +5,8 @@ import { store } from './store.js';
 import { scoreTaskPriority } from './analyzer.js';
 import { pipeline } from './pipeline.js';
 import { startSourceControlPoller } from './poller.js';
+import { GitHubClient } from './integrations/github/github.client.js';
+import { GitLabClient } from './integrations/gitlab/gitlab.client.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
@@ -19,6 +21,142 @@ app.use(express.json());
 // 0. GET Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', provider: process.env.SOURCE_CONTROL_PROVIDER || 'github', timestamp: new Date().toISOString() });
+});
+
+// 0.1 GET Active Source Control Integration Status
+app.get('/api/integrations/status', async (req, res) => {
+  const savedConn = await store.getConnection();
+  const provider = savedConn?.provider || process.env.SOURCE_CONTROL_PROVIDER || 'github';
+
+  let repoInfo = savedConn ? {
+    id: savedConn.repositoryId,
+    name: savedConn.repositoryName,
+    url: savedConn.repositoryUrl
+  } : null;
+
+  if (!repoInfo) {
+    if (provider === 'gitlab') {
+      const projId = process.env.GITLAB_PROJECT_ID || 'unconfigured';
+      const baseUrl = process.env.GITLAB_URL || 'https://gitlab.com';
+      repoInfo = {
+        id: projId,
+        name: projId.split('/').pop() || projId,
+        url: `${baseUrl}/${projId}`
+      };
+    } else {
+      const owner = process.env.GITHUB_OWNER || 'unconfigured';
+      const repo = process.env.GITHUB_REPO || 'unconfigured';
+      repoInfo = {
+        id: `${owner}/${repo}`,
+        name: repo,
+        url: `https://github.com/${owner}/${repo}`
+      };
+    }
+  }
+
+  res.json({
+    status: 'success',
+    connection: {
+      provider,
+      status: savedConn?.status || (process.env.GITHUB_TOKEN || process.env.GITLAB_TOKEN ? 'connected' : 'not_configured'),
+      repository: repoInfo,
+      lastVerified: savedConn?.lastVerified || new Date().toISOString()
+    }
+  });
+});
+
+// 0.2 POST Test Source Control Integration Credentials & Repository Access (Provider-Neutral)
+app.post('/api/integrations/test', async (req, res) => {
+  const { provider, config } = req.body || {};
+
+  if (!provider || !['github', 'gitlab'].includes(provider.toLowerCase())) {
+    return res.status(400).json({ success: false, message: 'Invalid provider. Must be "github" or "gitlab".' });
+  }
+
+  const prov = provider.toLowerCase();
+  const cfg = config || {};
+
+  try {
+    if (prov === 'github') {
+      const owner = cfg.owner || process.env.GITHUB_OWNER;
+      const repo = cfg.repo || process.env.GITHUB_REPO;
+      const token = cfg.token || process.env.GITHUB_TOKEN;
+
+      if (!owner || !repo || !token) {
+        return res.status(400).json({ success: false, message: 'Missing GitHub configuration. Required: Owner, Repository, and Personal Access Token.' });
+      }
+
+      const client = new GitHubClient(owner, repo, token);
+      const commits = await client.getLatestCommits(1);
+
+      if (!Array.isArray(commits)) {
+        return res.status(401).json({ success: false, message: 'Unable to authenticate or access GitHub repository. Check credentials.' });
+      }
+
+      const repoId = `${owner}/${repo}`;
+      return res.json({
+        success: true,
+        provider: 'github',
+        repository: {
+          id: repoId,
+          name: repo,
+          url: `https://github.com/${repoId}`
+        },
+        message: `Successfully connected to GitHub repository "${repoId}".`
+      });
+    } else if (prov === 'gitlab') {
+      const projectId = cfg.projectId || process.env.GITLAB_PROJECT_ID;
+      const token = cfg.token || process.env.GITLAB_TOKEN;
+      const baseUrl = cfg.url || process.env.GITLAB_URL || 'https://gitlab.com';
+
+      if (!projectId || !token) {
+        return res.status(400).json({ success: false, message: 'Missing GitLab configuration. Required: Project ID and Access Token.' });
+      }
+
+      const client = new GitLabClient(projectId, token, baseUrl);
+      const commits = await client.getLatestCommits(1);
+
+      if (!Array.isArray(commits)) {
+        return res.status(401).json({ success: false, message: 'Unable to authenticate or access GitLab project. Check credentials & Project ID.' });
+      }
+
+      const projName = String(projectId).split('/').pop() || String(projectId);
+      const repoUrl = `${baseUrl.replace(/\/+$/, '')}/${projectId}`;
+
+      return res.json({
+        success: true,
+        provider: 'gitlab',
+        repository: {
+          id: String(projectId),
+          name: projName,
+          url: repoUrl
+        },
+        message: `Successfully connected to GitLab project "${projectId}".`
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, message: `Connection test error: ${err.message}` });
+  }
+});
+
+// 0.3 POST Save Source Control Connection Metadata
+app.post('/api/integrations/save', async (req, res) => {
+  const { provider, repository } = req.body || {};
+
+  if (!provider || !repository) {
+    return res.status(400).json({ error: 'Provider and repository metadata are required.' });
+  }
+
+  const connData = {
+    provider,
+    repositoryId: repository.id,
+    repositoryName: repository.name,
+    repositoryUrl: repository.url,
+    status: 'connected'
+  };
+
+  const updated = await store.saveConnection(connData);
+  res.json({ status: 'success', connection: updated });
 });
 
 // 1. GET Tasks (MongoDB Async)

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github,
+  LayoutGrid, Bot, Crown, Users, Plus, RefreshCw, Github, GitBranch,
   Download, BarChart2, FileText, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
@@ -17,7 +17,9 @@ export function Sidebar({
   onViewModeChange,
   onDownloadCSV,
   onOpenTeamOverview,
-  onOpenReportExport
+  onOpenReportExport,
+  onOpenSourceControlModal,
+  activeConnection
 }) {
   return (
     <aside
@@ -102,11 +104,11 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* AI Drawer Launcher */}
+        {/* AI Copilot & Source Control Integrations */}
         <div className="px-2 py-1 space-y-1">
           {!isCollapsed && (
             <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-              Assistant
+              Integrations
             </div>
           )}
           <button
@@ -120,6 +122,17 @@ export function Sidebar({
           >
             <Bot className="w-4 h-4 text-blue-600 shrink-0" />
             {!isCollapsed && <span>AI Copilot</span>}
+          </button>
+
+          <button
+            onClick={onOpenSourceControlModal}
+            title="Source Control Integration"
+            className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <GitBranch className="w-4 h-4 text-blue-600 shrink-0" />
+            {!isCollapsed && <span>Source Control</span>}
           </button>
         </div>
 
@@ -156,17 +169,26 @@ export function Sidebar({
 
         {/* Repo Watching Card (only when expanded) */}
         {!isCollapsed && (
-          <div className="mx-2 mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-600 font-semibold mb-1">
-              <Github className="w-3.5 h-3.5 text-slate-700" />
-              <span>Connected Repo</span>
+          <div
+            onClick={onOpenSourceControlModal}
+            title="Configure Source Control Integration"
+            className="mx-2 mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs cursor-pointer hover:bg-slate-100/80 transition-all"
+          >
+            <div className="flex items-center justify-between text-slate-600 font-semibold mb-1">
+              <div className="flex items-center gap-1.5">
+                <GitBranch className="w-3.5 h-3.5 text-blue-600" />
+                <span className="capitalize">{activeConnection?.provider || 'GitHub'}</span>
+              </div>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Connected
+              </span>
             </div>
             <div className="font-mono text-[10px] text-blue-700 font-semibold bg-white p-1 rounded border border-slate-200 truncate">
-              gowtham2304-A/exchnage
+              {activeConnection?.repository?.id || 'gowtham2304-A/exchnage'}
             </div>
             <div className="flex items-center gap-1.5 mt-1.5 text-[9px] text-slate-500">
               <RefreshCw className="w-2.5 h-2.5 text-blue-600 animate-spin" />
-              <span>Git Poller (5s)</span>
+              <span>Git Poller (10s)</span>
             </div>
           </div>
         )}

@@ -14,6 +14,49 @@ async function run() {
   console.log('\n1) GET /api/health');
   console.log(await req('/api/health'));
 
+  console.log('\n1.1) GET /api/integrations/status');
+  const connStatus = await req('/api/integrations/status');
+  console.log(connStatus);
+
+  console.log('\n1.2) POST /api/integrations/test (Invalid Provider)');
+  const invalidTest = await req('/api/integrations/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'invalid' })
+  });
+  console.log(invalidTest);
+
+  console.log('\n1.3) POST /api/integrations/test (GitHub missing credentials)');
+  const ghMissingTest = await req('/api/integrations/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'github', config: { owner: '', repo: '', token: '' } })
+  });
+  console.log(ghMissingTest);
+
+  console.log('\n1.4) POST /api/integrations/test (GitLab missing credentials)');
+  const glMissingTest = await req('/api/integrations/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'gitlab', config: { projectId: '', token: '' } })
+  });
+  console.log(glMissingTest);
+
+  console.log('\n1.5) POST /api/integrations/save (Save non-secret metadata)');
+  const saveConnRes = await req('/api/integrations/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'gitlab',
+      repository: {
+        id: 'group/project',
+        name: 'project',
+        url: 'https://gitlab.com/group/project'
+      }
+    })
+  });
+  console.log(saveConnRes);
+
   console.log('\n2) GET /api/tasks');
   const tasksRes = await req('/api/tasks');
   console.log(tasksRes);

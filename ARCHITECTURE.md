@@ -113,17 +113,12 @@ The AI analysis pipeline is isolated behind an `AIAnalyzer` interface (`server/a
 
 ## 7. Future Extension Strategy
 
-### Adding GitLab, Bitbucket, Azure Repos, or Gerrit
+### Implemented Providers (GitHub & GitLab)
 
-To add a new provider (e.g. GitLab):
+1. **GitHub Provider**: `server/integrations/github/github.provider.js` (`SOURCE_CONTROL_PROVIDER=github`)
+2. **GitLab Provider**: `server/integrations/gitlab/gitlab.provider.js` (`SOURCE_CONTROL_PROVIDER=gitlab`)
 
-1. Create `server/integrations/gitlab/gitlab.provider.js` extending `SourceControlProvider`.
-2. Implement `fetchChanges()`, `fetchChangeDetails()`, and `normalizeChange()`.
-3. Register the class in `server/providers/factory.js`:
-   ```javascript
-   registerProvider('gitlab', GitLabProvider);
-   ```
-4. Set `SOURCE_CONTROL_PROVIDER=gitlab` in environment variables.
+Both providers are registered in `server/providers/factory.js`. Adding a new provider (e.g. Bitbucket or Azure Repos) follows the exact same 2-file creation + factory registration pattern without modifying any core pipeline code.
 
 ### PulseBoard Agent Integration for Private / Firewalled Repositories
 

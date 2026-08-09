@@ -10,6 +10,7 @@ import { CreateTaskModal } from './components/CreateTaskModal';
 import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
 import { ReportExportModal } from './components/ReportExportModal';
+import { SourceControlModal } from './components/SourceControlModal';
 import { AlertCircle, Clock } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
@@ -47,6 +48,8 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isManagerOverviewOpen, setIsManagerOverviewOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false); // Elite Bounty
+  const [isSourceControlOpen, setIsSourceControlOpen] = useState(false);
+  const [activeConnection, setActiveConnection] = useState(null);
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -100,9 +103,20 @@ export default function App() {
       } catch (err) {}
     }
 
+    async function loadConnection() {
+      try {
+        const res = await fetch(`${API_BASE}/integrations/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.connection) setActiveConnection(data.connection);
+        }
+      } catch (err) {}
+    }
+
     loadTasks();
     loadSession();
     loadActivity();
+    loadConnection();
 
     // Poll tasks and live git activity from DB every 5 seconds
     const interval = setInterval(() => {
@@ -348,6 +362,8 @@ export default function App() {
         onDownloadCSV={handleDownloadCSV}
         onOpenTeamOverview={() => setIsManagerOverviewOpen(true)}
         onOpenReportExport={() => setIsReportModalOpen(true)}
+        onOpenSourceControlModal={() => setIsSourceControlOpen(true)}
+        activeConnection={activeConnection}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -479,6 +495,19 @@ export default function App() {
         onClose={() => setIsReportModalOpen(false)}
         tasks={tasks}
         teamMembers={demoMembers}
+      />
+
+      {/* Source Control Provider Connection Modal */}
+      <SourceControlModal
+        isOpen={isSourceControlOpen}
+        onClose={() => setIsSourceControlOpen(false)}
+        onConnectionUpdated={() => {
+          // Refresh active connection status
+          fetch(`${API_BASE}/integrations/status`)
+            .then(res => res.json())
+            .then(data => { if (data.connection) setActiveConnection(data.connection); })
+            .catch(() => {});
+        }}
       />
     </div>
   );

@@ -69,9 +69,21 @@ const SessionSchema = new mongoose.Schema({
   }
 });
 
+// Active Connection Metadata Schema (Non-secret metadata)
+const ConnectionSchema = new mongoose.Schema({
+  key: { type: String, default: 'active_connection', unique: true },
+  provider: { type: String, default: 'github' },
+  repositoryId: String,
+  repositoryName: String,
+  repositoryUrl: String,
+  status: { type: String, default: 'connected' },
+  lastVerified: { type: String, default: () => new Date().toISOString() }
+});
+
 const Task = mongoose.model('Task', TaskSchema);
 const Activity = mongoose.model('Activity', ActivitySchema);
 const Session = mongoose.model('Session', SessionSchema);
+const Connection = mongoose.model('Connection', ConnectionSchema);
 
 class Store {
   async getSession() {
@@ -93,6 +105,44 @@ class Store {
       );
     } catch (e) {
       console.error('Error saving session to MongoDB:', e.message);
+    }
+  }
+
+  async getConnection() {
+    try {
+      const conn = await Connection.findOne({ key: 'active_connection' });
+      return conn ? {
+        provider: conn.provider,
+        repositoryId: conn.repositoryId,
+        repositoryName: conn.repositoryName,
+        repositoryUrl: conn.repositoryUrl,
+        status: conn.status,
+        lastVerified: conn.lastVerified
+      } : null;
+    } catch (e) {
+      console.error('Error reading connection metadata from MongoDB:', e.message);
+      return null;
+    }
+  }
+
+  async saveConnection(connData) {
+    try {
+      const updated = await Connection.findOneAndUpdate(
+        { key: 'active_connection' },
+        {
+          provider: connData.provider,
+          repositoryId: connData.repositoryId,
+          repositoryName: connData.repositoryName,
+          repositoryUrl: connData.repositoryUrl,
+          status: connData.status || 'connected',
+          lastVerified: new Date().toISOString()
+        },
+        { upsert: true, new: true }
+      );
+      return updated;
+    } catch (e) {
+      console.error('Error saving connection metadata to MongoDB:', e.message);
+      return null;
     }
   }
 

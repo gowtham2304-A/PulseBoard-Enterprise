@@ -166,8 +166,9 @@ async function testScoreTaskPriority() {
 // ──────────────────────────────────────────────────────────────────────────────
 console.log('\n7) Testing Idempotency Scoping (Fix 5)');
 async function testIdempotency() {
+  const testSha = 'uniq-' + Math.random().toString(16).substring(2, 9);
   // same provider + same repo + same changeId → duplicate
-  const check1a = await store.hasProcessedChange('testuniq999', 'github', 'owner/repo');
+  const check1a = await store.hasProcessedChange(testSha, 'github', 'owner/repo');
   assert(check1a === false, 'Should not find non-existent change');
 
   await store.addActivityLog({
@@ -175,8 +176,8 @@ async function testIdempotency() {
     provider: 'github',
     repositoryId: 'owner/repo',
     repositoryName: 'repo',
-    changeId: 'testuniq999',
-    sha: 'testuniq999',
+    changeId: testSha,
+    sha: testSha,
     author: 'Test',
     message: 'test',
     matchedTask: 'Test task',
@@ -187,19 +188,19 @@ async function testIdempotency() {
     timestamp: new Date().toISOString()
   });
 
-  const check1b = await store.hasProcessedChange('testuniq999', 'github', 'owner/repo');
+  const check1b = await store.hasProcessedChange(testSha, 'github', 'owner/repo');
   assert(check1b === true, 'Same provider + same repo + same changeId → duplicate');
 
   // different provider + same changeId → NOT duplicate
-  const check2 = await store.hasProcessedChange('testuniq999', 'gitlab', 'company/project');
+  const check2 = await store.hasProcessedChange(testSha, 'gitlab', 'company/project');
   assert(check2 === false, 'Different provider + same changeId → NOT duplicate');
 
   // same provider + different repo + same changeId → NOT duplicate
-  const check3 = await store.hasProcessedChange('testuniq999', 'github', 'other-owner/other-repo');
+  const check3 = await store.hasProcessedChange(testSha, 'github', 'other-owner/other-repo');
   assert(check3 === false, 'Same provider + different repo + same changeId → NOT duplicate');
 
   // Legacy fallback (no provider/repo) → finds by changeId alone
-  const check4 = await store.hasProcessedChange('testuniq999');
+  const check4 = await store.hasProcessedChange(testSha);
   assert(check4 === true, 'Legacy fallback should find by changeId alone');
 
   console.log('  ✅ Idempotency correctly scoped by provider + repositoryId + changeId.');
