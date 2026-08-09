@@ -26,15 +26,19 @@ export function startSourceControlPoller(providerName = process.env.SOURCE_CONTR
       const changes = await provider.fetchChanges();
       if (!Array.isArray(changes) || changes.length === 0) return;
 
-      const latestChange = changes[0];
-      const changeId = latestChange.sha || latestChange.id;
-      if (!changeId) return;
+      const latestRawChange = changes[0];
 
-      // Fetch detail diffs for this change
-      const rawDetails = await provider.fetchChangeDetails(changeId);
+      // Normalize first to get a provider-neutral change ID, then fetch details
+      const preliminaryEvent = provider.normalizeChange(latestRawChange, null);
+      if (!preliminaryEvent || !preliminaryEvent.change || !preliminaryEvent.change.id) return;
 
-      // Convert provider payload into PulseBoard NormalizedChangeEvent
-      const normalizedEvent = provider.normalizeChange(latestChange, rawDetails);
+      // Fetch full detail diffs using the provider-extracted change ID
+      const rawDetails = await provider.fetchChangeDetails(preliminaryEvent.change.id);
+
+      // Re-normalize with full details for complete patch data
+      const normalizedEvent = rawDetails
+        ? provider.normalizeChange(latestRawChange, rawDetails)
+        : preliminaryEvent;
 
       // Route event to central pipeline
       await pipeline.processChangeEvent(normalizedEvent);

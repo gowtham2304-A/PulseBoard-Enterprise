@@ -20,8 +20,12 @@ export class PulseBoardPipeline {
     const changeId = event.change.id;
     const shortId = changeId.substring(0, 7);
 
-    // 1. Check idempotency
-    const processed = await store.hasProcessedChange(changeId);
+    // 1. Check idempotency (scoped by provider + repository + changeId)
+    const processed = await store.hasProcessedChange(
+      changeId,
+      event.provider || null,
+      event.repository?.id || null
+    );
     if (processed) {
       console.log(`[Pipeline] Change ${shortId} already processed. Skipping.`);
       return { processed: false, reason: 'Already processed' };
@@ -35,7 +39,7 @@ export class PulseBoardPipeline {
       console.log('[Pipeline] No open tasks on board. Logging unmatched change.');
       const logEntry = {
         id: Date.now().toString(),
-        provider: event.provider || 'github',
+        provider: event.provider || 'unknown',
         repositoryId: event.repository?.id || '',
         repositoryName: event.repository?.name || '',
         changeId: shortId,
@@ -60,7 +64,7 @@ export class PulseBoardPipeline {
       console.log('[Pipeline] No matching task found for this change.');
       const logEntry = {
         id: Date.now().toString(),
-        provider: event.provider || 'github',
+        provider: event.provider || 'unknown',
         repositoryId: event.repository?.id || '',
         repositoryName: event.repository?.name || '',
         changeId: shortId,
@@ -90,7 +94,7 @@ export class PulseBoardPipeline {
     // 5. Add provider-agnostic activity log record
     const logEntry = {
       id: Date.now().toString(),
-      provider: event.provider || 'github',
+      provider: event.provider || 'unknown',
       repositoryId: event.repository?.id || '',
       repositoryName: event.repository?.name || '',
       changeId: shortId,

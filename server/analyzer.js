@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GeminiAnalyzer } from './analyzer/gemini.analyzer.js';
 
 export async function analyzeDiffWithGemini(commitMessage, diffCode, tasks, apiKey) {
   if (!tasks || tasks.length === 0) {

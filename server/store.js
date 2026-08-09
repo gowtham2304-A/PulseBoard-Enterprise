@@ -172,10 +172,27 @@ class Store {
     }
   }
 
-  async hasProcessedChange(changeId) {
+  async hasProcessedChange(changeId, provider = null, repositoryId = null) {
     if (!changeId) return false;
     try {
       const shortId = changeId.substring(0, 7);
+
+      // Scoped lookup: provider + repositoryId + changeId (preferred for multi-provider)
+      if (provider && repositoryId) {
+        const scopedMatch = await Activity.findOne({
+          provider: provider,
+          repositoryId: repositoryId,
+          $or: [
+            { changeId: changeId },
+            { changeId: shortId },
+            { sha: changeId },
+            { sha: shortId }
+          ]
+        });
+        return !!scopedMatch;
+      }
+
+      // Legacy fallback: changeId/sha only (backward compat for old records)
       const match = await Activity.findOne({
         $or: [
           { changeId: changeId },

@@ -104,11 +104,11 @@ app.post('/api/commit', async (req, res) => {
     const commitDiff = body.diff || 'diff --git a/src/app.js b/src/app.js\n+ updated code';
 
     event = {
-      provider: process.env.SOURCE_CONTROL_PROVIDER || 'github',
+      provider: 'manual',
       repository: {
-        id: `${process.env.GITHUB_OWNER || 'owner'}/${process.env.GITHUB_REPO || 'repo'}`,
-        name: process.env.GITHUB_REPO || 'repo',
-        url: `https://github.com/${process.env.GITHUB_OWNER || 'owner'}/${process.env.GITHUB_REPO || 'repo'}`
+        id: 'manual',
+        name: 'Manual Commit',
+        url: ''
       },
       change: {
         id: commitSHA,
