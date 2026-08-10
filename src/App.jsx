@@ -11,6 +11,7 @@ import { TaskReminderFlashCard } from './components/TaskReminderFlashCard';
 import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
 import { ReportExportModal } from './components/ReportExportModal';
 import { SourceControlModal } from './components/SourceControlModal';
+import { DeadlineAlertModal } from './components/DeadlineAlertModal';
 import { AlertCircle, Clock } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
@@ -50,6 +51,7 @@ export default function App() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false); // Elite Bounty
   const [isSourceControlOpen, setIsSourceControlOpen] = useState(false);
   const [activeConnection, setActiveConnection] = useState(null);
+  const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(true);
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -138,6 +140,7 @@ export default function App() {
     } catch (e) {
       console.log('[PulseBoard] Could not save session to DB.');
     }
+    setIsDeadlineModalOpen(true);
     if (user && !user.isManager) {
       setIsFlashCardOpen(true);
     }
@@ -386,29 +389,7 @@ export default function App() {
           onResetFilters={handleResetFilters}
         />
 
-        {/* ── Manager: Deadline Overdue / Urgent Banner ── */}
-        {currentUser?.isManager && deadlineAlerts.length > 0 && (
-          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-start gap-3 text-xs text-red-900">
-            <Clock className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-red-900">⏰ Deadline Alert:</span>
-              <ul className="list-disc pl-4 mt-1 space-y-1">
-                {deadlineAlerts.map(t => {
-                  const dl = getDeadlineUrgency(t.deadline, t.status);
-                  return (
-                    <li key={t.id}>
-                      <strong>{t.assignee}</strong> — <strong className="text-blue-700">{t.key}</strong> "{t.title}" is{' '}
-                      {dl.isOverdue
-                        ? <span className="text-red-700 font-bold">OVERDUE!</span>
-                        : <span className="text-rose-700 font-bold">due in {dl.label}!</span>
-                      }
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        )}
+
 
         {/* ── Manager: 10h Inactivity Banner ── */}
         {currentUser?.isManager && staleTasks.length > 0 && (
@@ -508,6 +489,15 @@ export default function App() {
             .then(data => { if (data.connection) setActiveConnection(data.connection); })
             .catch(() => {});
         }}
+      />
+
+      {/* Interactive Deadline Alert Popup Modal */}
+      <DeadlineAlertModal
+        isOpen={isDeadlineModalOpen}
+        onClose={() => setIsDeadlineModalOpen(false)}
+        tasks={tasks}
+        currentUser={currentUser}
+        onSelectTask={(task) => setSelectedTaskForDiff(task)}
       />
     </div>
   );
