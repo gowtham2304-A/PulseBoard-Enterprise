@@ -12,6 +12,7 @@ import { ManagerOverviewPanel } from './components/ManagerOverviewPanel';
 import { ReportExportModal } from './components/ReportExportModal';
 import { SourceControlModal } from './components/SourceControlModal';
 import { DeadlineAlertModal } from './components/DeadlineAlertModal';
+import { SetDeadlineModal } from './components/SetDeadlineModal';
 import { AlertCircle, Clock } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
@@ -52,6 +53,7 @@ export default function App() {
   const [isSourceControlOpen, setIsSourceControlOpen] = useState(false);
   const [activeConnection, setActiveConnection] = useState(null);
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(true);
+  const [selectedTaskForDeadline, setSelectedTaskForDeadline] = useState(null);
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -70,7 +72,12 @@ export default function App() {
         const res = await fetch(`${API_BASE}/tasks`);
         if (res.ok) {
           const data = await res.json();
-          if (data.tasks) setTasks(data.tasks);
+          if (data.tasks) {
+            setTasks((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.tasks)) return prev;
+              return data.tasks;
+            });
+          }
         }
       } catch (err) {
         console.log('[PulseBoard] Backend offline — tasks not loaded.');
@@ -100,7 +107,12 @@ export default function App() {
         const res = await fetch(`${API_BASE}/activity`);
         if (res.ok) {
           const data = await res.json();
-          if (data.activity) setCommitLog(data.activity);
+          if (data.activity) {
+            setCommitLog((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.activity)) return prev;
+              return data.activity;
+            });
+          }
         }
       } catch (err) {}
     }
@@ -421,6 +433,7 @@ export default function App() {
             viewMode={viewMode}
             onSimulateInactivity={handleSimulateInactivity}
             onSetDeadline={handleSetDeadline}
+            onOpenSetDeadline={(task) => setSelectedTaskForDeadline(task)}
           />
         </main>
       </div>
@@ -496,9 +509,21 @@ export default function App() {
         isOpen={isDeadlineModalOpen}
         onClose={() => setIsDeadlineModalOpen(false)}
         tasks={tasks}
-        currentUser={currentUser}
         onSelectTask={(task) => setSelectedTaskForDiff(task)}
       />
+
+      {/* Top-Level Set Deadline Modal */}
+      {selectedTaskForDeadline && (
+        <SetDeadlineModal
+          task={selectedTaskForDeadline}
+          isOpen={Boolean(selectedTaskForDeadline)}
+          onClose={() => setSelectedTaskForDeadline(null)}
+          onSave={(taskId, deadlineIso) => {
+            handleSetDeadline(taskId, deadlineIso);
+            setSelectedTaskForDeadline(null);
+          }}
+        />
+      )}
     </div>
   );
 }

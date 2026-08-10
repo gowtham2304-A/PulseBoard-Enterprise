@@ -18,14 +18,14 @@ export function SetDeadlineModal({ task, isOpen, onClose, onSave }) {
       deadlineIso = new Date(datetime).toISOString();
     }
     if (!deadlineIso) return;
-    onSave(task.id, deadlineIso);
+    onSave(task?.id || task?._id, deadlineIso);
     setHours('');
     setDatetime('');
     onClose();
   };
 
   const handleRemove = () => {
-    onSave(task.id, null);
+    onSave(task?.id || task?._id, null);
     onClose();
   };
 

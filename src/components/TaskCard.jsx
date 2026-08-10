@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, AlertTriangle, Clock, Timer } from 'lucide-react';
 import { SetDeadlineModal } from './SetDeadlineModal';
 
@@ -188,20 +189,22 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
         </div>
       </div>
 
-      {/* Deadline Modal — rendered inline, stops propagation */}
-      {showDeadlineModal && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <SetDeadlineModal
-            task={task}
-            isOpen={showDeadlineModal}
-            onClose={() => setShowDeadlineModal(false)}
-            onSave={(taskId, deadlineIso) => {
-              onSetDeadline(taskId, deadlineIso);
-              setShowDeadlineModal(false);
-            }}
-          />
-        </div>
-      )}
+      {/* Deadline Modal — rendered via Portal at top level to prevent board shaking */}
+      {showDeadlineModal &&
+        createPortal(
+          <div onClick={(e) => e.stopPropagation()}>
+            <SetDeadlineModal
+              task={task}
+              isOpen={showDeadlineModal}
+              onClose={() => setShowDeadlineModal(false)}
+              onSave={(taskId, deadlineIso) => {
+                onSetDeadline(taskId || task.id || task._id, deadlineIso);
+                setShowDeadlineModal(false);
+              }}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

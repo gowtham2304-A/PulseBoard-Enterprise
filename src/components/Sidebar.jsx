@@ -127,12 +127,19 @@ export function Sidebar({
           <button
             onClick={onOpenSourceControlModal}
             title="Source Control Integration"
-            className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all ${
+            className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all ${
               isCollapsed ? 'justify-center' : ''
             }`}
           >
-            <GitBranch className="w-4 h-4 text-blue-600 shrink-0" />
-            {!isCollapsed && <span>Source Control</span>}
+            <div className="flex items-center gap-2.5">
+              <GitBranch className="w-4 h-4 text-blue-600 shrink-0" />
+              {!isCollapsed && <span>Source Control</span>}
+            </div>
+            {!isCollapsed && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {activeConnection?.provider ? activeConnection.provider.toUpperCase() : 'CONNECTED'}
+              </span>
+            )}
           </button>
         </div>
 
@@ -166,32 +173,6 @@ export function Sidebar({
             {!isCollapsed && <span>Reports & Export</span>}
           </button>
         </div>
-
-        {/* Repo Watching Card (only when expanded) */}
-        {!isCollapsed && (
-          <div
-            onClick={onOpenSourceControlModal}
-            title="Configure Source Control Integration"
-            className="mx-2 mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs cursor-pointer hover:bg-slate-100/80 transition-all"
-          >
-            <div className="flex items-center justify-between text-slate-600 font-semibold mb-1">
-              <div className="flex items-center gap-1.5">
-                <GitBranch className="w-3.5 h-3.5 text-blue-600" />
-                <span className="capitalize">{activeConnection?.provider || 'GitHub'}</span>
-              </div>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Connected
-              </span>
-            </div>
-            <div className="font-mono text-[10px] text-blue-700 font-semibold bg-white p-1 rounded border border-slate-200 truncate">
-              {activeConnection?.repository?.id || 'gowtham2304-A/exchnage'}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5 text-[9px] text-slate-500">
-              <RefreshCw className="w-2.5 h-2.5 text-blue-600 animate-spin" />
-              <span>Git Poller (10s)</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* User Account Switcher Footer */}

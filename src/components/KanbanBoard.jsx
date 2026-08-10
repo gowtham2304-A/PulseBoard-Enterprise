@@ -10,6 +10,7 @@ export function KanbanBoard({
   onManualMove,
   onSimulateInactivity,
   onSetDeadline,
+  onOpenSetDeadline,
 }) {
   if (viewMode === 'swimlanes') {
     return (
@@ -62,6 +63,7 @@ export function KanbanBoard({
                       columns={columns}
                       onSimulateInactivity={onSimulateInactivity}
                       onSetDeadline={onSetDeadline}
+                      onOpenSetDeadline={onOpenSetDeadline}
                     />
                   ))
                 ) : (
@@ -101,6 +103,7 @@ export function KanbanBoard({
                   columns={columns}
                   onSimulateInactivity={onSimulateInactivity}
                   onSetDeadline={onSetDeadline}
+                  onOpenSetDeadline={onOpenSetDeadline}
                 />
               ))}
           </div>
