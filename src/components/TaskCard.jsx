@@ -55,9 +55,9 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
         deadlineInfo?.isUrgent ? 'border-rose-400 bg-rose-50/30 shadow-rose-100 shadow-lg' : ''
       }`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
             {task.key || 'PLS-101'}
           </span>
           {task.label && (
@@ -67,15 +67,15 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {deadlineInfo && (
-            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border flex items-center gap-0.5 ${deadlineInfo.colorClass}`}>
+            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border flex items-center gap-0.5 shrink-0 ${deadlineInfo.colorClass}`}>
               <Timer className="w-2.5 h-2.5" />
               {deadlineInfo.label}
             </span>
           )}
           <span
-            className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${
+            className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border shrink-0 ${
               priorityBadge[effectivePriority] || priorityBadge.medium
             }`}
           >
@@ -153,11 +153,11 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
               onManualMove(task.id, e.target.value);
             }}
             value={task.status}
-            className="bg-slate-50 text-slate-700 text-[10px] rounded px-1.5 py-0.5 border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium shrink-0 max-w-[110px]"
+            className="bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg px-2 py-1 border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0 transition-all"
           >
             {columns.map((col) => (
               <option key={col.id} value={col.id}>
-                Move: {col.title}
+                {col.title}
               </option>
             ))}
           </select>

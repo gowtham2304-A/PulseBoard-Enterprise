@@ -78,11 +78,11 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex gap-3 p-4 w-full overflow-x-auto justify-start kanban-scroll">
+    <div className="flex gap-4 p-5 w-full overflow-x-auto justify-start kanban-scroll">
       {columns.map((col) => (
         <div
           key={col.id}
-          className="w-[220px] sm:w-[240px] md:w-[250px] kanban-column rounded-2xl p-3 flex-shrink-0"
+          className="w-[260px] sm:w-[280px] md:w-[290px] kanban-column rounded-2xl p-3.5 flex-shrink-0"
         >
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-bold uppercase text-slate-600 tracking-wider">{col.title}</h4>
