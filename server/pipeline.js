@@ -1,5 +1,6 @@
 import { store } from './store.js';
 import { GeminiAnalyzer } from './analyzer/gemini.analyzer.js';
+import { parsePulseBoardTaskId } from './task-id.parser.js';
 
 export class PulseBoardPipeline {
   constructor(analyzer = null) {
@@ -33,7 +34,84 @@ export class PulseBoardPipeline {
 
     console.log(`[Pipeline] Processing change [${event.provider || 'git'}] #${shortId}: "${event.change.message}"`);
 
-    // 2. Fetch active board tasks
+    // 2. Parse explicit PulseBoard Task ID prefix [PB-<TASK_ID>]
+    const parsedTag = parsePulseBoardTaskId(event.change.message);
+
+    if (parsedTag.hasTaskId) {
+      console.log(`[Pipeline] Explicit PulseBoard Task ID detected: "${parsedTag.taskId}" (Tag: ${parsedTag.rawTag})`);
+
+      // Search for exact task in database
+      const explicitTask = await store.findTaskByIdOrKey(parsedTag.taskId);
+
+      if (!explicitTask) {
+        console.log(`[Pipeline] Referenced PulseBoard task "${parsedTag.taskId}" was not found in database.`);
+        const logEntry = {
+          id: Date.now().toString(),
+          provider: event.provider || 'unknown',
+          repositoryId: event.repository?.id || '',
+          repositoryName: event.repository?.name || '',
+          changeId: shortId,
+          sha: shortId,
+          author: event.change.author?.name || 'Developer',
+          message: event.change.message,
+          matchedTask: 'Referenced task not found',
+          matchedTaskId: null,
+          statusShift: 'none',
+          summary: `Referenced PulseBoard task "${parsedTag.taskId}" was not found.`,
+          confidence: 'low',
+          timestamp: new Date().toISOString()
+        };
+        await store.addActivityLog(logEntry);
+        return { processed: true, analysis: null, updatedTask: null, reason: `Referenced PulseBoard task "${parsedTag.taskId}" was not found.` };
+      }
+
+      // Explicit task found! Construct clean event for targeted AI analysis
+      const cleanEvent = {
+        ...event,
+        change: {
+          ...event.change,
+          message: parsedTag.cleanMessage
+        }
+      };
+
+      const analysis = await this.analyzer.analyzeChangeEvent(cleanEvent, [explicitTask]);
+      const targetStatus = (analysis && analysis.newStatus) ? analysis.newStatus : (explicitTask.status === 'todo' ? 'in_progress' : explicitTask.status);
+      const summaryText = (analysis && analysis.summary) ? analysis.summary : `Explicit commit [${parsedTag.rawTag}] matched to "${explicitTask.title}".`;
+      const confidenceLevel = (analysis && analysis.confidence) ? analysis.confidence : 'high';
+
+      // Update matched task state in database
+      const updatedTask = await store.updateTaskStatus(explicitTask.id, {
+        status: targetStatus,
+        last_summary: summaryText,
+        reconsideration_reason: analysis?.reconsiderationReason || '',
+        confidence: confidenceLevel,
+        last_activity_time: new Date().toISOString()
+      });
+
+      // Add activity log entry
+      const logEntry = {
+        id: Date.now().toString(),
+        provider: event.provider || 'unknown',
+        repositoryId: event.repository?.id || '',
+        repositoryName: event.repository?.name || '',
+        changeId: shortId,
+        sha: shortId,
+        author: event.change.author?.name || 'Developer',
+        message: event.change.message,
+        matchedTask: updatedTask ? updatedTask.title : explicitTask.title,
+        matchedTaskId: explicitTask.id,
+        statusShift: `➔ ${targetStatus}`,
+        summary: summaryText,
+        confidence: confidenceLevel,
+        timestamp: new Date().toISOString()
+      };
+      await store.addActivityLog(logEntry);
+
+      console.log(`[Pipeline] Explicit task updated: "${updatedTask?.title}" ➔ ${targetStatus}`);
+      return { processed: true, analysis: { matchedTaskId: explicitTask.id, newStatus: targetStatus, summary: summaryText, confidence: confidenceLevel }, updatedTask };
+    }
+
+    // 3. Fallback: No explicit Task ID prefix — use AI Task Matching
     const currentTasks = await store.getTasks();
     if (currentTasks.length === 0) {
       console.log('[Pipeline] No open tasks on board. Logging unmatched change.');
@@ -57,7 +135,7 @@ export class PulseBoardPipeline {
       return { processed: true, analysis: null, updatedTask: null };
     }
 
-    // 3. Perform AI Analysis
+    // Perform AI Fallback Matching
     const analysis = await this.analyzer.analyzeChangeEvent(event, currentTasks);
 
     if (!analysis || !analysis.matchedTaskId) {
@@ -82,7 +160,7 @@ export class PulseBoardPipeline {
       return { processed: true, analysis, updatedTask: null };
     }
 
-    // 4. Update task state in database
+    // Update task state in database
     const updatedTask = await store.updateTaskStatus(analysis.matchedTaskId, {
       status: analysis.newStatus,
       last_summary: analysis.summary,
@@ -91,7 +169,7 @@ export class PulseBoardPipeline {
       last_activity_time: new Date().toISOString()
     });
 
-    // 5. Add provider-agnostic activity log record
+    // Add activity log record
     const logEntry = {
       id: Date.now().toString(),
       provider: event.provider || 'unknown',
@@ -110,7 +188,7 @@ export class PulseBoardPipeline {
     };
     await store.addActivityLog(logEntry);
 
-    console.log(`[Pipeline] Task updated: "${updatedTask?.title}" ➔ ${analysis.newStatus}`);
+    console.log(`[Pipeline] Task updated via AI matching: "${updatedTask?.title}" ➔ ${analysis.newStatus}`);
     return { processed: true, analysis, updatedTask };
   }
 }

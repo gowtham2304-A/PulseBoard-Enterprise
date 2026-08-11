@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, GitBranch, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, ExternalLink } from 'lucide-react';
+import { X, GitBranch, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, ExternalLink, Trash2 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://pulseboard-enterprise.onrender.com/api';
 
@@ -20,6 +20,7 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
   const [status, setStatus] = useState('idle'); // idle | testing | success | error | saving | saved
   const [statusMessage, setStatusMessage] = useState('');
   const [verifiedRepo, setVerifiedRepo] = useState(null);
+  const [connectionsList, setConnectionsList] = useState([]);
 
   // Fetch current connection status from server on modal open
   useEffect(() => {
@@ -33,13 +34,19 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
       const res = await fetch(`${API_BASE}/integrations/status`);
       if (res.ok) {
         const data = await res.json();
+        if (Array.isArray(data.connections)) {
+          setConnectionsList(data.connections);
+        }
         if (data.connection) {
           setProvider(data.connection.provider || 'github');
           if (data.connection.repository) {
             setVerifiedRepo(data.connection.repository);
             if (data.connection.status === 'connected') {
               setStatus('success');
-              setStatusMessage(`Connected to ${data.connection.provider.toUpperCase()} repository "${data.connection.repository.id}"`);
+              setStatusMessage(`Connected & monitoring ${data.connection.provider.toUpperCase()} repository "${data.connection.repository.id}"`);
+            } else if (data.connection.status === 'credential_required') {
+              setStatus('error');
+              setStatusMessage(`Credential required for repository "${data.connection.repository.id}". Enter token below and save.`);
             }
           }
         }
@@ -84,19 +91,26 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
   async function handleSaveConnection() {
     if (!verifiedRepo) return;
     setStatus('saving');
+    const activeToken = provider === 'github' ? ghToken : glToken;
+
     try {
       const res = await fetch(`${API_BASE}/integrations/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
-          repository: verifiedRepo
+          repository: verifiedRepo,
+          credential: activeToken
         })
       });
 
       if (res.ok) {
         setStatus('saved');
-        setStatusMessage('Connection verified and saved! Restart PulseBoard server to begin background monitoring for this repository.');
+        setStatusMessage('Connection encrypted & saved! Background monitoring active.');
+        // Clear plaintext tokens from React state after save
+        setGhToken('');
+        setGlToken('');
+        fetchConnectionStatus();
         if (onConnectionUpdated) onConnectionUpdated();
         setTimeout(() => setStatus('success'), 3000);
       } else {
@@ -109,12 +123,24 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
     }
   }
 
-  function handleDisconnect() {
+  async function handleDisconnect(connId = null) {
+    const targetId = connId || (verifiedRepo ? verifiedRepo.id : null);
+    if (targetId) {
+      try {
+        await fetch(`${API_BASE}/integrations/${encodeURIComponent(targetId)}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        console.error('Error disconnecting connection:', e);
+      }
+    }
     setStatus('idle');
     setStatusMessage('Disconnected.');
     setVerifiedRepo(null);
     setGhToken('');
     setGlToken('');
+    fetchConnectionStatus();
+    if (onConnectionUpdated) onConnectionUpdated();
   }
 
   if (!isOpen) return null;
@@ -143,6 +169,41 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
 
         {/* Modal Body */}
         <div className="p-6 space-y-4 text-xs overflow-y-auto max-h-[75vh]">
+          {/* Active Connections List */}
+          {connectionsList && connectionsList.length > 0 && (
+            <div className="space-y-2 pb-3 border-b border-slate-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Connected Repositories ({connectionsList.length})
+              </div>
+              {connectionsList.map((c) => (
+                <div key={c.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="capitalize px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] uppercase font-mono font-bold">
+                        {c.provider}
+                      </span>
+                      {c.repositoryName || c.repositoryId}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">{c.repositoryId}</div>
+                    <div className="text-[10px] mt-1 flex items-center gap-1 font-medium">
+                      <span className={`w-2 h-2 rounded-full ${c.status === 'connected' ? 'bg-emerald-500' : c.status === 'credential_required' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
+                      <span className={c.status === 'connected' ? 'text-emerald-700 font-semibold' : c.status === 'credential_required' ? 'text-amber-700 font-semibold' : 'text-rose-700 font-semibold'}>
+                        {c.status === 'connected' ? 'Connected & Monitoring' : c.status === 'credential_required' ? 'Credential Required' : 'Authentication Error'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDisconnect(c.id)}
+                    className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-100/60 transition-all"
+                    title="Disconnect repository"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Provider Selection */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">
@@ -208,7 +269,7 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
                   className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Requires <code className="bg-slate-200 px-1 rounded text-slate-700">repo</code> read access. Leave blank to use server environment variables.
+                  Requires <code className="bg-slate-200 px-1 rounded text-slate-700">repo</code> read access. Encrypted on save using AES-256-GCM.
                 </p>
               </div>
             </div>
@@ -314,17 +375,17 @@ export function SourceControlModal({ isOpen, onClose, onConnectionUpdated }) {
           {/* Security Note */}
           <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Tokens are sent directly over secure API connections and never stored in cleartext.</span>
+            <span>Credentials encrypted via AES-256-GCM. Tokens are never exposed or stored in cleartext.</span>
           </div>
         </div>
 
         {/* Modal Actions Footer */}
         <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50">
           <button
-            onClick={handleDisconnect}
+            onClick={() => handleDisconnect()}
             className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-200/60 font-semibold text-xs transition-all"
           >
-            Disconnect
+            Disconnect All
           </button>
 
           <div className="flex items-center gap-2">

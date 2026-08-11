@@ -69,21 +69,45 @@ const SessionSchema = new mongoose.Schema({
   }
 });
 
-// Active Connection Metadata Schema (Non-secret metadata)
+// Connection Metadata Schema (Supports safe metadata + optional encrypted credential object)
 const ConnectionSchema = new mongoose.Schema({
-  key: { type: String, default: 'active_connection', unique: true },
-  provider: { type: String, default: 'github' },
-  repositoryId: String,
+  id: { type: String, required: true, unique: true },
+  key: String, // Backward compatibility alias
+  provider: { type: String, required: true },
+  repositoryId: { type: String, required: true },
   repositoryName: String,
   repositoryUrl: String,
   status: { type: String, default: 'connected' },
-  lastVerified: { type: String, default: () => new Date().toISOString() }
+  lastVerified: { type: String, default: () => new Date().toISOString() },
+  credential: {
+    encrypted: String,
+    iv: String,
+    authTag: String
+  },
+  userId: String,
+  organizationId: String,
+  workspaceId: String
 });
 
 const Task = mongoose.model('Task', TaskSchema);
 const Activity = mongoose.model('Activity', ActivitySchema);
 const Session = mongoose.model('Session', SessionSchema);
 const Connection = mongoose.model('Connection', ConnectionSchema);
+Connection.collection.dropIndex('key_1').catch(() => {});
+
+function formatSafeConnection(conn) {
+  if (!conn) return null;
+  return {
+    id: conn.id || `${conn.provider}:${conn.repositoryId}`,
+    provider: conn.provider,
+    repositoryId: conn.repositoryId,
+    repositoryName: conn.repositoryName || conn.repositoryId,
+    repositoryUrl: conn.repositoryUrl || '',
+    status: conn.status || 'connected',
+    lastVerified: conn.lastVerified || new Date().toISOString(),
+    hasCredential: Boolean(conn.credential && conn.credential.encrypted)
+  };
+}
 
 class Store {
   async getSession() {
@@ -108,41 +132,136 @@ class Store {
     }
   }
 
-  async getConnection() {
+  async getConnections() {
     try {
-      const conn = await Connection.findOne({ key: 'active_connection' });
-      return conn ? {
-        provider: conn.provider,
-        repositoryId: conn.repositoryId,
-        repositoryName: conn.repositoryName,
-        repositoryUrl: conn.repositoryUrl,
-        status: conn.status,
-        lastVerified: conn.lastVerified
-      } : null;
+      const conns = await Connection.find({});
+      return conns.map(formatSafeConnection);
+    } catch (e) {
+      console.error('Error reading connections from MongoDB:', e.message);
+      return [];
+    }
+  }
+
+  async getConnection(idOrRepoId = null) {
+    try {
+      let conn = null;
+      if (idOrRepoId) {
+        conn = await Connection.findOne({
+          $or: [
+            { id: idOrRepoId },
+            { repositoryId: idOrRepoId },
+            { key: idOrRepoId }
+          ]
+        });
+      } else {
+        conn = await Connection.findOne({ key: 'active_connection' });
+        if (!conn) {
+          conn = await Connection.findOne({}).sort({ lastVerified: -1 });
+        }
+      }
+      if (conn && conn.status === 'not_configured') return null;
+      return formatSafeConnection(conn);
     } catch (e) {
       console.error('Error reading connection metadata from MongoDB:', e.message);
       return null;
     }
   }
 
+  async getConnectionWithCredential(idOrRepoId = null) {
+    try {
+      let conn = null;
+      if (idOrRepoId) {
+        conn = await Connection.findOne({
+          $or: [
+            { id: idOrRepoId },
+            { repositoryId: idOrRepoId },
+            { key: idOrRepoId }
+          ]
+        });
+      } else {
+        conn = await Connection.findOne({ key: 'active_connection' });
+        if (!conn) {
+          conn = await Connection.findOne({}).sort({ lastVerified: -1 });
+        }
+      }
+      if (conn && conn.status === 'not_configured') return null;
+      return conn;
+    } catch (e) {
+      console.error('Error reading internal connection credential from MongoDB:', e.message);
+      return null;
+    }
+  }
+
   async saveConnection(connData) {
     try {
+      const provider = (connData.provider || '').toLowerCase();
+      const repositoryId = connData.repositoryId || '';
+      const connId = connData.id || (provider && repositoryId ? `${provider}:${repositoryId}` : 'active_connection');
+
+      if (connData.status === 'not_configured' || (!provider && !repositoryId)) {
+        await Connection.deleteMany({});
+        const updated = await Connection.findOneAndUpdate(
+          { key: 'active_connection' },
+          {
+            id: 'active_connection',
+            key: 'active_connection',
+            provider: '',
+            repositoryId: '',
+            repositoryName: '',
+            repositoryUrl: '',
+            status: 'not_configured',
+            lastVerified: new Date().toISOString()
+          },
+          { upsert: true, new: true }
+        );
+        return formatSafeConnection(updated);
+      }
+
+      // Re-assign active_connection key to the primary connection being saved
+      await Connection.updateMany({ key: 'active_connection' }, { $unset: { key: 1 } });
+
+      const updatePayload = {
+        id: connId,
+        key: 'active_connection',
+        provider,
+        repositoryId,
+        repositoryName: connData.repositoryName || repositoryId,
+        repositoryUrl: connData.repositoryUrl || '',
+        status: connData.status || 'connected',
+        lastVerified: new Date().toISOString()
+      };
+
+      if (connData.credential) updatePayload.credential = connData.credential;
+      if (connData.userId) updatePayload.userId = connData.userId;
+      if (connData.organizationId) updatePayload.organizationId = connData.organizationId;
+      if (connData.workspaceId) updatePayload.workspaceId = connData.workspaceId;
+
       const updated = await Connection.findOneAndUpdate(
-        { key: 'active_connection' },
-        {
-          provider: connData.provider,
-          repositoryId: connData.repositoryId,
-          repositoryName: connData.repositoryName,
-          repositoryUrl: connData.repositoryUrl,
-          status: connData.status || 'connected',
-          lastVerified: new Date().toISOString()
-        },
+        { id: connId },
+        updatePayload,
         { upsert: true, new: true }
       );
-      return updated;
+      return formatSafeConnection(updated);
     } catch (e) {
       console.error('Error saving connection metadata to MongoDB:', e.message);
       return null;
+    }
+  }
+
+  async deleteConnection(idOrRepoId) {
+    try {
+      if (!idOrRepoId) return false;
+      const res = await Connection.deleteOne({
+        $or: [
+          { id: idOrRepoId },
+          { repositoryId: idOrRepoId },
+          { key: idOrRepoId }
+        ]
+      });
+      return res.deletedCount > 0;
+    } catch (e) {
+      console.error('Error deleting connection from MongoDB:', e.message);
+      return false;
     }
   }
 
@@ -152,6 +271,40 @@ class Store {
     } catch (e) {
       console.error('Error fetching tasks from MongoDB:', e.message);
       return [];
+    }
+  }
+
+  async findTaskByIdOrKey(taskId) {
+    if (!taskId) return null;
+    try {
+      const cleanId = String(taskId).trim();
+      const numOnly = cleanId.replace(/^task-/, '').replace(/^PLS-/, '');
+
+      const possibleIds = Array.from(new Set([
+        cleanId,
+        `task-${cleanId}`,
+        `task-${numOnly}`,
+        numOnly
+      ]));
+
+      const possibleKeys = Array.from(new Set([
+        cleanId,
+        `PLS-${cleanId}`,
+        `PLS-${numOnly}`,
+        numOnly
+      ]));
+
+      const task = await Task.findOne({
+        $or: [
+          { id: { $in: possibleIds } },
+          { key: { $in: possibleKeys } }
+        ]
+      });
+
+      return task;
+    } catch (e) {
+      console.error('Error finding task by ID or key in MongoDB:', e.message);
+      return null;
     }
   }
 

@@ -26,6 +26,7 @@ function getDeadlineInfo(deadline, status) {
 
 export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateInactivity, onSetDeadline }) {
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [copiedTag, setCopiedTag] = useState(false);
   const isReconsideration = task.status === 'reconsideration';
 
   const isStale = React.useMemo(() => {
@@ -47,6 +48,8 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
     low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
+  const tagText = `[PB-${task.id?.replace(/^task-/, '') || task.key || '101'}]`;
+
   return (
     <div
       onClick={() => onTaskClick(task)}
@@ -61,6 +64,19 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
           <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
             {task.key || 'PLS-101'}
           </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard?.writeText(tagText);
+              setCopiedTag(true);
+              setTimeout(() => setCopiedTag(false), 2000);
+            }}
+            className="font-mono text-[9px] font-medium text-slate-500 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 px-1.5 py-0.5 rounded border border-slate-200 transition-colors"
+            title="Click to copy commit message tag"
+          >
+            {copiedTag ? 'Copied ✓' : tagText}
+          </button>
           {task.label && (
             <span className="px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 rounded border border-slate-200">
               {task.label}

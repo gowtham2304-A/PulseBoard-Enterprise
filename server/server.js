@@ -8,6 +8,7 @@ import { startSourceControlPoller } from './poller.js';
 import { GitHubClient } from './integrations/github/github.client.js';
 import { GitLabClient } from './integrations/gitlab/gitlab.client.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { connectionManager } from './connection-manager.js';
 
 dotenv.config();
 
@@ -25,13 +26,15 @@ app.get('/api/health', (req, res) => {
 
 // 0.1 GET Active Source Control Integration Status
 app.get('/api/integrations/status', async (req, res) => {
-  const savedConn = await store.getConnection();
-  const provider = savedConn?.provider || process.env.SOURCE_CONTROL_PROVIDER || 'github';
+  const connections = await store.getConnections();
+  const primaryConn = await store.getConnection();
 
-  let repoInfo = savedConn ? {
-    id: savedConn.repositoryId,
-    name: savedConn.repositoryName,
-    url: savedConn.repositoryUrl
+  const provider = primaryConn?.provider || process.env.SOURCE_CONTROL_PROVIDER || 'github';
+
+  let repoInfo = primaryConn ? {
+    id: primaryConn.repositoryId,
+    name: primaryConn.repositoryName,
+    url: primaryConn.repositoryUrl
   } : null;
 
   if (!repoInfo) {
@@ -57,11 +60,14 @@ app.get('/api/integrations/status', async (req, res) => {
   res.json({
     status: 'success',
     connection: {
+      id: primaryConn?.id || `${provider}:${repoInfo.id}`,
       provider,
-      status: savedConn?.status || (process.env.GITHUB_TOKEN || process.env.GITLAB_TOKEN ? 'connected' : 'not_configured'),
+      status: primaryConn?.status || (process.env.GITHUB_TOKEN || process.env.GITLAB_TOKEN ? 'connected' : 'not_configured'),
       repository: repoInfo,
-      lastVerified: savedConn?.lastVerified || new Date().toISOString()
-    }
+      lastVerified: primaryConn?.lastVerified || new Date().toISOString(),
+      hasCredential: primaryConn?.hasCredential || false
+    },
+    connections
   });
 });
 
@@ -139,24 +145,46 @@ app.post('/api/integrations/test', async (req, res) => {
   }
 });
 
-// 0.3 POST Save Source Control Connection Metadata
+// 0.3 POST Save Source Control Connection Credential & Metadata (Encrypts & Starts Monitoring)
 app.post('/api/integrations/save', async (req, res) => {
-  const { provider, repository } = req.body || {};
+  const { provider, repository, credential, token } = req.body || {};
 
   if (!provider || !repository) {
     return res.status(400).json({ error: 'Provider and repository metadata are required.' });
   }
 
-  const connData = {
-    provider,
-    repositoryId: repository.id,
-    repositoryName: repository.name,
-    repositoryUrl: repository.url,
-    status: 'connected'
-  };
+  const rawCredential = credential || token || null;
 
-  const updated = await store.saveConnection(connData);
-  res.json({ status: 'success', connection: updated });
+  try {
+    const result = await connectionManager.registerConnection(
+      { provider, repository },
+      rawCredential
+    );
+
+    res.json({
+      status: 'success',
+      connection: result.connection,
+      message: 'Connection encrypted, saved, and monitoring started live.'
+    });
+  } catch (err) {
+    console.error('[Server Error] Save connection error:', err.message);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// 0.4 DELETE Disconnect Source Control Connection
+app.delete('/api/integrations/:id', async (req, res) => {
+  const { id } = req.params;
+  const result = await connectionManager.disconnectConnection(decodeURIComponent(id));
+  res.json(result);
+});
+
+// 0.5 POST Disconnect Source Control Connection (Alternative route)
+app.post('/api/integrations/disconnect', async (req, res) => {
+  const { id, repositoryId } = req.body || {};
+  const connId = id || repositoryId;
+  const result = await connectionManager.disconnectConnection(connId);
+  res.json(result);
 });
 
 // 1. GET Tasks (MongoDB Async)
