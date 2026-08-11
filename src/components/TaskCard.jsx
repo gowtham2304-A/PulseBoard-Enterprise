@@ -48,7 +48,8 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
     low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
-  const tagText = `[PB-${task.id?.replace(/^task-/, '') || task.key || '101'}]`;
+  const taskKey = task.key || 'PLS-101';
+  const tagText = `[${taskKey}]`;
 
   return (
     <div
@@ -62,7 +63,7 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
       <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1 shrink-0">
           <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-            {task.key || 'PLS-101'}
+            {taskKey}
           </span>
           <button
             type="button"
@@ -73,7 +74,7 @@ export function TaskCard({ task, onTaskClick, onManualMove, columns, onSimulateI
               setTimeout(() => setCopiedTag(false), 2000);
             }}
             className="font-mono text-[9px] font-medium text-slate-500 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 px-1.5 py-0.5 rounded border border-slate-200 transition-colors"
-            title="Click to copy commit message tag"
+            title={`Include ${tagText} in your commit message to automatically link the commit to this task`}
           >
             {copiedTag ? 'Copied ✓' : tagText}
           </button>

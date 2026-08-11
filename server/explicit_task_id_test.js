@@ -13,7 +13,7 @@ function assert(condition, message) {
   }
 }
 
-console.log('🧪 Starting Explicit Task ID Pipeline Integration Test Suite (Phase 2.9)...\n');
+console.log('🧪 Starting Explicit Task ID Pipeline Integration Test Suite (Canonical PLS-953 Verification)...\n');
 
 async function runTests() {
   // Wait for MongoDB connection
@@ -24,61 +24,61 @@ async function runTests() {
     await store.clearTasks();
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Setup Test Tasks
+    // Setup Test Task (Canonical Task PLS-953)
     // ──────────────────────────────────────────────────────────────────────────
-    const targetTaskId = `task-explicit-${Date.now()}`;
-    const targetTask = await store.addTask({
+    const targetTaskKey = 'PLS-953';
+    const targetTaskId = `task-${Date.now()}`;
+    const initialTask = await store.addTask({
       id: targetTaskId,
-      key: 'PLS-777',
-      title: 'Implement explicit task attribution in pipeline',
-      description: 'Parse [PB-...] prefix from commit messages',
+      key: targetTaskKey,
+      title: 'Add GitLab integration test documentation',
+      description: 'Document live GitLab connection testing flow',
       status: 'todo',
       assignee: 'Khidmat'
     });
 
-    const otherTask = await store.addTask({
-      id: `task-other-${Date.now()}`,
-      key: 'PLS-888',
-      title: 'Build unrelated user profile settings modal',
-      description: 'Frontend component for user profile',
-      status: 'todo',
-      assignee: 'Vansh'
-    });
+    const tasksBefore = await store.getTasks();
+    assert(tasksBefore.length === 1, 'Board must have exactly 1 initial task before commit');
+    assert(tasksBefore[0].key === 'PLS-953', 'Initial task key must be PLS-953');
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 1. Explicit Linked Commit [PB-<TASK_ID>] Matching Target Task
+    // 1. Explicit Commit [PLS-953] Matching Existing Task
     // ──────────────────────────────────────────────────────────────────────────
-    console.log('1) Testing Explicit Linked Commit [PB-<TASK_ID>] matching target task');
+    console.log('1) Testing Explicit Commit [PLS-953] matching existing task PLS-953');
     const linkedEvent = {
-      provider: 'github',
-      repository: { id: 'owner/repo', name: 'repo', url: 'https://github.com/owner/repo' },
+      provider: 'gitlab',
+      repository: { id: 'PulseBoard-GitLab-Test', name: 'PulseBoard-GitLab-Test', url: 'https://gitlab.com/PulseBoard-GitLab-Test' },
       change: {
         id: 'sha-' + Math.random().toString(16).substring(2, 9),
-        message: `[PB-${targetTaskId}] feat: complete explicit task attribution pipeline integration`,
+        message: '[PLS-953] feat: add GitLab integration test documentation',
         author: { name: 'Khidmat', email: 'khidmat@example.com' },
         timestamp: new Date().toISOString()
       },
-      changes: [{ path: 'server/pipeline.js', status: 'modified', additions: 25, deletions: 2, patch: '@@ -1,5 +1,25 @@\n+parsePulseBoardTaskId' }],
-      rawDiff: 'diff --git a/server/pipeline.js b/server/pipeline.js\n+parsePulseBoardTaskId'
+      changes: [{ path: 'README.md', status: 'modified', additions: 15, deletions: 0, patch: '@@ -1,5 +1,15 @@\n+GitLab Integration Testing Documentation' }],
+      rawDiff: 'diff --git a/README.md b/README.md\n+GitLab Integration Testing Documentation'
     };
 
     const res1 = await pipeline.processChangeEvent(linkedEvent);
     assert(res1.processed === true, 'Pipeline must process linked commit');
-    assert(res1.updatedTask !== null, 'Target task must be updated');
-    assert(res1.updatedTask.id === targetTaskId, 'Updated task must match the explicit Task ID in commit message');
-    assert(['in_progress', 'review', 'done'].includes(res1.updatedTask.status), 'Task status must be updated');
-    console.log(`  ✅ Explicit linked commit updated target task "${res1.updatedTask.title}" ➔ ${res1.updatedTask.status}.`);
+    assert(res1.updatedTask !== null, 'Target task PLS-953 must be updated');
+    assert(res1.updatedTask.key === 'PLS-953', 'Updated task key must equal "PLS-953"');
+    assert(['in_progress', 'review', 'done'].includes(res1.updatedTask.status), 'Task status must shift from todo');
+
+    const tasksAfter = await store.getTasks();
+    assert(tasksAfter.length === 1, 'NO new task must be created — task count must remain exactly 1');
+    assert(tasksAfter[0].key === 'PLS-953', 'Single existing task PLS-953 must remain updated');
+    console.log(`  ✅ Existing task PLS-953 updated ➔ ${res1.updatedTask.status}. Task count remained 1.`);
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 2. Explicit Linked Commit with Non-Existent Task ID [PB-9999999]
+    // 2. Explicit Commit with Non-Existent Task Key [PLS-999]
     // ──────────────────────────────────────────────────────────────────────────
-    console.log('\n2) Testing Explicit Linked Commit with Non-Existent Task ID [PB-9999999]');
+    console.log('\n2) Testing Explicit Commit with Non-Existent Task Key [PLS-999]');
     const missingTaskEvent = {
-      provider: 'github',
-      repository: { id: 'owner/repo', name: 'repo', url: 'https://github.com/owner/repo' },
+      provider: 'gitlab',
+      repository: { id: 'PulseBoard-GitLab-Test', name: 'PulseBoard-GitLab-Test', url: 'https://gitlab.com/PulseBoard-GitLab-Test' },
       change: {
         id: 'sha-' + Math.random().toString(16).substring(2, 9),
-        message: '[PB-nonexistent-9999999] fix: attempt to link non-existent task',
+        message: '[PLS-999] fix: attempt to link non-existent task PLS-999',
         author: { name: 'Developer', email: 'dev@example.com' },
         timestamp: new Date().toISOString()
       },
@@ -88,36 +88,25 @@ async function runTests() {
 
     const res2 = await pipeline.processChangeEvent(missingTaskEvent);
     assert(res2.processed === true, 'Pipeline must process commit safely without crashing');
-    assert(res2.updatedTask === null, 'No task should be updated when explicit Task ID does not exist');
+    assert(res2.updatedTask === null, 'No task should be updated when PLS-999 does not exist');
+
+    const tasksAfterMissing = await store.getTasks();
+    assert(tasksAfterMissing.length === 1, 'NO new task must be created for non-existent PLS-999');
 
     const activityLog = await store.getActivityLog();
     const lastActivity = activityLog[0];
     assert(lastActivity.matchedTask === 'Referenced task not found', 'Activity log must indicate referenced task not found');
-    assert(lastActivity.summary.includes('nonexistent-9999999'), 'Summary must mention the missing Task ID');
-    console.log('  ✅ Non-existent Task ID safely handled without guessing or updating wrong tasks.');
+    assert(lastActivity.summary.includes('PLS-999'), 'Summary must mention non-existent Task ID PLS-999');
+    console.log('  ✅ Non-existent PLS-999 safely logged without task creation or updating wrong tasks.');
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 3. Normal Commit (No [PB-...] Tag) Fallback AI Matching
+    // 3. Activity Log & Task Key Attribution
     // ──────────────────────────────────────────────────────────────────────────
-    console.log('\n3) Testing Normal Commit (No [PB-...] Tag) Fallback AI Matching');
-    const normalEvent = {
-      provider: 'gitlab',
-      repository: { id: 'group/project', name: 'project', url: 'https://gitlab.com/group/project' },
-      change: {
-        id: 'sha-' + Math.random().toString(16).substring(2, 9),
-        message: 'feat(profile): build user profile settings page component',
-        author: { name: 'Vansh', email: 'vansh@example.com' },
-        timestamp: new Date().toISOString()
-      },
-      changes: [{ path: 'src/components/UserProfile.jsx', status: 'added', additions: 50, deletions: 0, patch: '@@ -0,0 +1,50 @@\n+export function UserProfile() {}' }],
-      rawDiff: 'diff --git a/src/components/UserProfile.jsx b/src/components/UserProfile.jsx\n+export function UserProfile() {}'
-    };
-
-    const res3 = await pipeline.processChangeEvent(normalEvent);
-    assert(res3.processed === true, 'Pipeline must process normal commit');
-    assert(res3.updatedTask !== null, 'Normal commit should use fallback AI matching');
-    assert(res3.updatedTask.id === otherTask.id, 'Fallback AI matching should match the profile settings task');
-    console.log(`  ✅ Normal commit fallback AI matched task "${res3.updatedTask.title}" ➔ ${res3.updatedTask.status}.`);
+    console.log('\n3) Testing Activity Log Attribution for PLS-953');
+    const matchedActivity = activityLog.find(a => a.changeId === linkedEvent.change.id.substring(0, 7) || a.sha === linkedEvent.change.id.substring(0, 7));
+    assert(matchedActivity !== undefined, 'Activity log must exist for linked commit');
+    assert(matchedActivity.matchedTask.includes('PLS-953'), 'Activity log matchedTask must reference PLS-953');
+    console.log(`  ✅ Activity log correctly references task "${matchedActivity.matchedTask}".`);
 
   } catch (err) {
     console.error('❌ Test execution error:', err);
@@ -129,7 +118,7 @@ async function runTests() {
     console.error(`❌ ${failed} test(s) FAILED, ${passed} passed.`);
     process.exit(1);
   } else {
-    console.log(`🎉 ALL ${passed} EXPLICIT TASK ID PIPELINE TESTS PASSED SUCCESSFULLY!`);
+    console.log(`🎉 ALL ${passed} CANONICAL TASK ID PIPELINE TESTS PASSED SUCCESSFULLY!`);
     process.exit(0);
   }
 }

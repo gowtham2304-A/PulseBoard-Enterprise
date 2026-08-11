@@ -34,13 +34,13 @@ export class PulseBoardPipeline {
 
     console.log(`[Pipeline] Processing change [${event.provider || 'git'}] #${shortId}: "${event.change.message}"`);
 
-    // 2. Parse explicit PulseBoard Task ID prefix [PB-<TASK_ID>]
+    // 2. Parse explicit PulseBoard Task ID prefix [PLS-953]
     const parsedTag = parsePulseBoardTaskId(event.change.message);
 
     if (parsedTag.hasTaskId) {
       console.log(`[Pipeline] Explicit PulseBoard Task ID detected: "${parsedTag.taskId}" (Tag: ${parsedTag.rawTag})`);
 
-      // Search for exact task in database
+      // Search for exact existing task in database
       const explicitTask = await store.findTaskByIdOrKey(parsedTag.taskId);
 
       if (!explicitTask) {
@@ -57,12 +57,12 @@ export class PulseBoardPipeline {
           matchedTask: 'Referenced task not found',
           matchedTaskId: null,
           statusShift: 'none',
-          summary: `Referenced PulseBoard task "${parsedTag.taskId}" was not found.`,
+          summary: `Referenced PulseBoard task ${parsedTag.taskId} was not found.`,
           confidence: 'low',
           timestamp: new Date().toISOString()
         };
         await store.addActivityLog(logEntry);
-        return { processed: true, analysis: null, updatedTask: null, reason: `Referenced PulseBoard task "${parsedTag.taskId}" was not found.` };
+        return { processed: true, analysis: null, updatedTask: null, reason: `Referenced PulseBoard task ${parsedTag.taskId} was not found.` };
       }
 
       // Explicit task found! Construct clean event for targeted AI analysis
@@ -76,7 +76,7 @@ export class PulseBoardPipeline {
 
       const analysis = await this.analyzer.analyzeChangeEvent(cleanEvent, [explicitTask]);
       const targetStatus = (analysis && analysis.newStatus) ? analysis.newStatus : (explicitTask.status === 'todo' ? 'in_progress' : explicitTask.status);
-      const summaryText = (analysis && analysis.summary) ? analysis.summary : `Explicit commit [${parsedTag.rawTag}] matched to "${explicitTask.title}".`;
+      const summaryText = (analysis && analysis.summary) ? analysis.summary : `Explicit commit [${parsedTag.rawTag}] matched to task ${explicitTask.key || explicitTask.id}.`;
       const confidenceLevel = (analysis && analysis.confidence) ? analysis.confidence : 'high';
 
       // Update matched task state in database
@@ -98,7 +98,7 @@ export class PulseBoardPipeline {
         sha: shortId,
         author: event.change.author?.name || 'Developer',
         message: event.change.message,
-        matchedTask: updatedTask ? updatedTask.title : explicitTask.title,
+        matchedTask: explicitTask.key || (updatedTask ? updatedTask.title : explicitTask.title),
         matchedTaskId: explicitTask.id,
         statusShift: `➔ ${targetStatus}`,
         summary: summaryText,
@@ -107,7 +107,7 @@ export class PulseBoardPipeline {
       };
       await store.addActivityLog(logEntry);
 
-      console.log(`[Pipeline] Explicit task updated: "${updatedTask?.title}" ➔ ${targetStatus}`);
+      console.log(`[Pipeline] Explicit task updated: "${explicitTask.key || updatedTask?.title}" ➔ ${targetStatus}`);
       return { processed: true, analysis: { matchedTaskId: explicitTask.id, newStatus: targetStatus, summary: summaryText, confidence: confidenceLevel }, updatedTask };
     }
 
