@@ -29,7 +29,7 @@ if (!MONGODB_URI && IS_PRODUCTION) {
 const EFFECTIVE_MONGODB_URI = MONGODB_URI || 'mongodb://127.0.0.1:27017/pulseboard';
 const isLocalDb = EFFECTIVE_MONGODB_URI.includes('127.0.0.1') || EFFECTIVE_MONGODB_URI.includes('localhost');
 
-mongoose.connect(EFFECTIVE_MONGODB_URI)
+export const dbConnectionPromise = mongoose.connect(EFFECTIVE_MONGODB_URI)
   .then(() => {
     if (isLocalDb) {
       console.log('🔌 Connected to Local MongoDB (pulseboard)');
@@ -37,7 +37,17 @@ mongoose.connect(EFFECTIVE_MONGODB_URI)
       console.log('🔌 Connected to Remote MongoDB Atlas Database');
     }
   })
-  .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err.message);
+    if (IS_PRODUCTION) {
+      throw err;
+    }
+  });
+
+export async function ensureDbConnected() {
+  if (mongoose.connection.readyState === 1) return;
+  await dbConnectionPromise;
+}
 
 // Task Schema
 const TaskSchema = new mongoose.Schema({
@@ -167,6 +177,7 @@ class Store {
 
   async getConnections() {
     try {
+      await ensureDbConnected();
       const conns = await Connection.find({});
       return conns.map(formatSafeConnection);
     } catch (e) {
@@ -177,6 +188,7 @@ class Store {
 
   async getConnection(idOrRepoId = null) {
     try {
+      await ensureDbConnected();
       let conn = null;
       if (idOrRepoId) {
         conn = await Connection.findOne(buildConnectionQuery(idOrRepoId));
@@ -196,6 +208,7 @@ class Store {
 
   async getConnectionWithCredential(idOrRepoId = null) {
     try {
+      await ensureDbConnected();
       let conn = null;
       if (idOrRepoId) {
         conn = await Connection.findOne(buildConnectionQuery(idOrRepoId));

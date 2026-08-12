@@ -1,4 +1,4 @@
-import { store } from './store.js';
+import { store, ensureDbConnected } from './store.js';
 import { encryptCredential, decryptCredential } from './security/credential.vault.js';
 import { getSourceControlProvider } from './providers/factory.js';
 import { pipeline } from './pipeline.js';
@@ -16,7 +16,12 @@ class ConnectionManager {
    */
   async loadAndStartAllConnections() {
     console.log('[ConnectionManager] Loading active connections from database...');
+    await ensureDbConnected();
     let connections = await store.getConnections();
+    console.log(`[ConnectionManager] Found ${connections.length} connection record(s) in database.`);
+    for (const conn of connections) {
+      console.log(`[ConnectionManager] DB Connection Metadata: ID="${conn.id}", Provider="${conn.provider}", Repo="${conn.repositoryId}", Status="${conn.status}", HasCredential=${conn.hasCredential}`);
+    }
 
     // Migration / Fallback: If no connections in DB, check if legacy connection or env variables exist
     if (connections.length === 0) {
@@ -29,6 +34,7 @@ class ConnectionManager {
     let startedCount = 0;
 
     for (const connMetadata of connections) {
+      console.log(`[ConnectionManager] Initializing provider monitoring for connection "${connMetadata.id}" (Provider: ${connMetadata.provider}, Repo: ${connMetadata.repositoryId})...`);
       const started = await this.startConnectionMonitoring(connMetadata.id);
       if (started) startedCount++;
     }

@@ -404,8 +404,8 @@ Be concise, use markdown, emojis, bold headers, and bullet points.`;
   res.json({ status: 'success', answer });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`⚡ PulseBoard Express Backend running on http://localhost:${PORT}`);
   console.log(`🔗 Active Provider: "${process.env.SOURCE_CONTROL_PROVIDER || 'github'}"`);
-  startSourceControlPoller();
+  await startSourceControlPoller();
 });
