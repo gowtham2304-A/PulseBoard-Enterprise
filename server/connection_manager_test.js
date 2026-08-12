@@ -17,6 +17,7 @@ function assert(condition, message) {
 console.log('🧪 Starting Connection Manager & Multi-Connection Test Suite (Phase 2.8)...\n');
 
 async function runTests() {
+  process.env.NODE_ENV = 'test';
   // Set test encryption key in environment
   process.env.PULSEBOARD_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 

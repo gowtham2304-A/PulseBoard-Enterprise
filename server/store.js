@@ -1,4 +1,7 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config(process.env.DOTENV_CONFIG_PATH ? { path: process.env.DOTENV_CONFIG_PATH } : undefined);
 
 export const COLUMNS = [
   { id: 'todo', title: 'TO DO', max: null },
@@ -13,10 +16,27 @@ export const TEAM_MEMBERS = [
   { id: 'vansh', name: 'Vansh', role: 'Developer', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80' },
 ];
 
-// Connect to Local MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pulseboard';
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('🔌 Connected to Local MongoDB (pulseboard)'))
+const MONGODB_URI = process.env.NODE_ENV === 'test'
+  ? (process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/pulseboard_test')
+  : (process.env.MONGODB_URI || process.env.MONGO_URI);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+
+if (!MONGODB_URI && IS_PRODUCTION) {
+  console.error('❌ CRITICAL ERROR: MONGODB_URI environment variable is missing in production deployment.');
+  throw new Error('MONGODB_URI environment variable is required in production environment.');
+}
+
+const EFFECTIVE_MONGODB_URI = MONGODB_URI || 'mongodb://127.0.0.1:27017/pulseboard';
+const isLocalDb = EFFECTIVE_MONGODB_URI.includes('127.0.0.1') || EFFECTIVE_MONGODB_URI.includes('localhost');
+
+mongoose.connect(EFFECTIVE_MONGODB_URI)
+  .then(() => {
+    if (isLocalDb) {
+      console.log('🔌 Connected to Local MongoDB (pulseboard)');
+    } else {
+      console.log('🔌 Connected to Remote MongoDB Atlas Database');
+    }
+  })
   .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
 
 // Task Schema
@@ -95,6 +115,19 @@ const Session = mongoose.model('Session', SessionSchema);
 const Connection = mongoose.model('Connection', ConnectionSchema);
 Connection.collection.dropIndex('key_1').catch(() => {});
 
+function buildConnectionQuery(idOrRepoId) {
+  if (!idOrRepoId) return null;
+  const repoOnly = idOrRepoId.includes(':') ? idOrRepoId.split(':')[1] : idOrRepoId;
+  return {
+    $or: [
+      { id: idOrRepoId },
+      { repositoryId: idOrRepoId },
+      { repositoryId: repoOnly },
+      { key: idOrRepoId }
+    ]
+  };
+}
+
 function formatSafeConnection(conn) {
   if (!conn) return null;
   return {
@@ -146,13 +179,7 @@ class Store {
     try {
       let conn = null;
       if (idOrRepoId) {
-        conn = await Connection.findOne({
-          $or: [
-            { id: idOrRepoId },
-            { repositoryId: idOrRepoId },
-            { key: idOrRepoId }
-          ]
-        });
+        conn = await Connection.findOne(buildConnectionQuery(idOrRepoId));
       } else {
         conn = await Connection.findOne({ key: 'active_connection' });
         if (!conn) {
@@ -171,13 +198,7 @@ class Store {
     try {
       let conn = null;
       if (idOrRepoId) {
-        conn = await Connection.findOne({
-          $or: [
-            { id: idOrRepoId },
-            { repositoryId: idOrRepoId },
-            { key: idOrRepoId }
-          ]
-        });
+        conn = await Connection.findOne(buildConnectionQuery(idOrRepoId));
       } else {
         conn = await Connection.findOne({ key: 'active_connection' });
         if (!conn) {
@@ -236,8 +257,9 @@ class Store {
       if (connData.organizationId) updatePayload.organizationId = connData.organizationId;
       if (connData.workspaceId) updatePayload.workspaceId = connData.workspaceId;
 
+      const query = buildConnectionQuery(connId) || { id: connId };
       const updated = await Connection.findOneAndUpdate(
-        { id: connId },
+        query,
         updatePayload,
         { upsert: true, new: true }
       );
@@ -251,13 +273,7 @@ class Store {
   async deleteConnection(idOrRepoId) {
     try {
       if (!idOrRepoId) return false;
-      const res = await Connection.deleteOne({
-        $or: [
-          { id: idOrRepoId },
-          { repositoryId: idOrRepoId },
-          { key: idOrRepoId }
-        ]
-      });
+      const res = await Connection.deleteOne(buildConnectionQuery(idOrRepoId));
       return res.deletedCount > 0;
     } catch (e) {
       console.error('Error deleting connection from MongoDB:', e.message);

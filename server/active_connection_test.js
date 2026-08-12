@@ -18,6 +18,7 @@ function assert(condition, message) {
 console.log('🧪 Starting Active Connection & Poller Precedence Test Suite (Phase 2.6)...\n');
 
 async function runTests() {
+  process.env.NODE_ENV = 'test';
   // Wait for MongoDB connection
   await new Promise(r => setTimeout(r, 2000));
 
